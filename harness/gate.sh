@@ -136,7 +136,7 @@ if find src -name '*.rs' 2>/dev/null | grep -q .; then
     echo -n "  cargo test: "
     if cargo test --all-features >/tmp/mdreview-test.log 2>&1; then
         echo "OK"
-        grep -E '^test result:' /tmp/mdreview-test.log | tail -3
+        grep -E '^test result:' /tmp/mdreview-test.log | sed 's/^/    /'
     else
         echo "FAIL"
         tail -30 /tmp/mdreview-test.log

@@ -457,3 +457,17 @@ Status: IN PROGRESS
   `statically linked`.
 - Real tmux PTY smoke: Markdown, outline/review panes, and a half-block Mermaid
   diagram rendered; `q` restored the terminal and exited 1.
+
+## Final QA verdict — 2026-11-21
+
+**4 PASS, 9 PARTIAL, 0 FAIL. No critical or major findings.** Release criteria
+are met: 131 tests, clean fmt/clippy, clean gate, 100% task progress, static-pie
+binary, and the earlier release blockers are verified fixed.
+
+Residual minor items (not release-blocking): automate the spec-001 harness
+negative tests and `plan.sh` persistence; validate the Markdown file in
+`resolve`; revise the read-only export-lock policy or document it; probe sidecar
+version before full deserialization; add the remaining clap/config and narrow
+TUI test matrix; add the suggestion comment field and draft re-anchoring; add
+portable `Ctrl+[`; media gutter/pixel/path tests and Mermaid theme/PATH tests;
+list-layout and control-character hardening.

@@ -158,7 +158,7 @@ The sidecar lives at `<file>.review.json`, with a lock at `<file>.review.json.lo
 - items with stable `cN` IDs, status, body, suggestion original/replacement, history
 - anchors with heading path, block index, quote, prefix/suffix context, byte/line range, and document hash
 
-Writes are atomic. Corrupt JSON is backed up to `<sidecar>.bak.<timestamp>`. Unknown schema versions are rejected without overwriting.
+Writes are atomic. Corrupt JSON is backed up to `<sidecar>.bak.<timestamp>`. Unknown schema versions are rejected without overwriting. Mutating commands and `export` take an exclusive sidecar lock; `export` exits 2 if a review currently holds it, so run it after the TUI closes.
 
 ## Configuration
 

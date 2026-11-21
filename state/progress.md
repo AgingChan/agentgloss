@@ -59,4 +59,5 @@
 - Fixed MODAL-1: mouse input is ignored while an editor, confirmation, help, or search overlay is open, so footer/document clicks cannot replace or discard an editor draft.
 - Addressed QA majors: `qa.sh` now validates the model invocation before atomically persisting the report; `__tui` writes its sentinel to `MDREVIEW_RESULT_FILE` so tmux handoff no longer depends solely on popup status propagation; terminal/event-loop failures autosave and exit aborted (1); MDREVIEW-13 is marked done after the release gate.
 - Addressed the second QA pass majors: portable `F10`/`Ctrl+S` save and signoff bindings (verified in a real PTY), custom-sidecar `--sidecar` in exported resolve commands, and preservation of content before an orphan END marker.
-- Final QA rerun and release evidence: in progress.
+- Final QA pass (21:57) returned **4 PASS, 9 PARTIAL, 0 FAIL, no critical or major findings**. The remaining PARTIALs are documented minor test-matrix and polish items, not feature blockers.
+- Release evidence: gate PASS with 0 errors/0 warnings, 100% task progress, 131 tests in debug and release profiles, static-pie binary, real PTY save/signoff and tmux popup probes.

@@ -48,3 +48,16 @@ Evidence was produced on 2026-11-21 with the static musl build and the full
 10. Portable save/signoff was exercised in a real PTY: `F10` opened the signoff
     confirmation, and `F10` after `c` + text saved a comment whose body was read
     back from the sidecar. `Ctrl+S` is also handled.
+
+## Final QA verdict (2026-11-21, post-fix pass)
+
+- **4 PASS, 9 PARTIAL, 0 FAIL; no critical or major findings.**
+- Gate evidence: 84 library + 15 CLI + 31 TUI + 1 performance = 131 tests,
+  0 failures; fmt and clippy clean; clean tree; 100% tasks; static-pie binary.
+- Release blockers from earlier passes were verified fixed: portable save/signoff,
+  custom-sidecar resolve commands, orphan-END preservation, modal mouse blocking,
+  result-file tmux sentinels, QA report validation, and complete gate summaries.
+- Full report: `state/qa_report.md`. Remaining PARTIAL items are minor
+  test-matrix/polish gaps documented in `state/fix_plan.md`.
+- Real-PTY checks: `F10` saved a comment and opened signoff; `q` restored the
+  terminal; a real tmux 3.2a popup propagated statuses 21 and 20.

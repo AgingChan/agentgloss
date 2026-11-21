@@ -1,7 +1,7 @@
 # mdreview — Terminal Spec Reviewer Design
 
 - **Date:** 2026-11-20 (updated 2026-11-21)
-- **Status:** MVP implemented; 131 automated tests passing; final release QA pass in progress
+- **Status:** MVP complete; 131 automated tests passing; final QA pass has no critical or major findings
 - **Working name:** `mdreview` (collides with an existing Python/Textual tool named mdreview; final name to be decided)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 

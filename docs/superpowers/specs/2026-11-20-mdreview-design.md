@@ -21,7 +21,7 @@ Reviewing long agent-generated specs and plans in a terminal is awkward. Scrollb
 | Persistence | Sidecar JSON at `<file>.review.json` plus a paste-ready prompt export. Lock file at `<file>.review.json.lock`. |
 | Review rounds | Unresolved comments persist across revisions, re-anchored by quote and context. Resolved items are archived; unfindable anchors become stale but keep their quote and body. |
 | Agents | First-class recipes for Claude Code, Codex CLI, Gemini CLI, and generic CLIs (OpenCode, Aider, etc.). |
-| Media | Local images and Mermaid diagrams render inline. Rust Mermaid renderer is the default; mermaid-cli is an optional fidelity override. Remote images are out of scope. |
+| Media | Local images and Mermaid diagrams render inline. Rust Mermaid renderer is the default; mermaid-cli is an optional fidelity override. Remote image fetching is out of scope; URLs render as link-styled text. |
 | Input | Vim modal bindings, standard keyboard mode, and mouse. Runtime switch between input modes. |
 | Network | None by default. No remote image fetching, telemetry, or cloud service. |
 | Name | `mdreview` is a working name; the collision with an existing project is noted. |
@@ -160,7 +160,7 @@ The build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host buil
 - Media cache is in-memory only; disk caching and an LRU bound are deferred.
 - `mermaid-rs-renderer` is pre-1.0 and may differ from mermaid-cli; `mmdc` is the escape hatch.
 - tmux 3.2a cannot use Sixel; Terax has no inline graphics protocol.
-- Remote images, ACP/MCP, CI gating, comment threads, and full Vim emulation are out of scope.
+- Remote image fetching, ACP/MCP, CI gating, comment threads, and full Vim emulation are out of scope; remote URLs render as link-styled text.
 - The autonomous `loop.sh`/`plan.sh`/`qa.sh` scripts require a `claude` CLI on PATH; `init.sh`, `gate.sh`, and `report.sh` do not.
 
 ## 14. Sources

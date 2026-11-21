@@ -37,3 +37,10 @@
 - Oversized media errors now include dimensions; Mermaid `source` mode and failures have distinct badges; fake-`mmdc` coverage was added.
 - Decision: stale items block approval; spec 004/design wording updated.
 - 101 tests pass; fmt and clippy are clean. Final QA pass is running.
+
+## 2026-11-21 — Session 4: final pre-QA fixes
+
+- Fixed line-selected suggestion originals to use the trimmed anchor quote, preventing false staleness after unrelated edits.
+- Fixed the QA harness heredoc so backticks in the prompt are literal, not shell substitutions; validated with a fake `claude` capture.
+- Save failures no longer get overwritten by success status messages.
+- 102 tests pass; fmt and clippy clean; final QA is running.

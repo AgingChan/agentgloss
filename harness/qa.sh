@@ -41,12 +41,11 @@ fi
 echo "Log: $QA_LOG"
 echo ""
 
-cat <<PROMPT | claude --print 2>&1 | tee "$QA_LOG"
-# mdreview QA Evaluator Pass
-
+{
+    printf '# mdreview QA Evaluator Pass\n\n'
+    printf '%s\n\n' "${TASK_FILTER:-Evaluate ALL recently completed tasks.}"
+    cat <<'PROMPT'
 You are a skeptical QA evaluator for mdreview, a Rust terminal Markdown spec reviewer.
-
-${TASK_FILTER:-Evaluate ALL recently completed tasks.}
 
 ## Your Job
 1. Read `state/tasks.json` for completed tasks.
@@ -84,6 +83,7 @@ Write actionable findings to `state/fix_plan.md`.
 - Verify tests assert meaningful behavior, not just that code does not crash.
 - A spec requirement with no corresponding implementation is a FAIL.
 PROMPT
+} | claude --print 2>&1 | tee "$QA_LOG"
 
 echo ""
 echo "--- QA pass completed at $(date) ---"

@@ -1,7 +1,7 @@
 # mdreview — Terminal Spec Reviewer Design
 
 - **Date:** 2026-11-20 (updated 2026-11-21)
-- **Status:** MVP implemented; 101 automated tests passing; final QA pass in progress
+- **Status:** MVP implemented; 102 automated tests passing; final QA pass in progress
 - **Working name:** `mdreview` (collides with an existing Python/Textual tool named mdreview; final name to be decided)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 
@@ -146,7 +146,7 @@ The build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host buil
 
 ## 12. Validation
 
-- 60 library tests, 15 CLI integration tests, 25 TUI integration tests, and 1 performance test pass; `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
+- 61 library tests, 15 CLI integration tests, 25 TUI integration tests, and 1 performance test pass; `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
 - Additional coverage includes tmux feedback/abort exit codes, custom sidecars, export locking, stale approval status, reattachment, narrow-terminal overlays, mouse hit-testing, content-addressed media caching, grapheme-safe wrapping, and a 2,000-line performance test.
 - PTY smoke test: a real tmux pane rendered the document, Mermaid, and image placeholder, accepted `q`, restored the terminal, and exited with code 1 (aborted).
 - Fake-tmux integration test verifies popup and detached command construction.

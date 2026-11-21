@@ -708,13 +708,13 @@ impl App {
             self.status = "Images accept comments, not suggestions".to_string();
             return;
         }
-        let original = self.document.text_in_range(range.clone()).to_string();
-        if original.trim().is_empty() {
-            self.status = "Selected range is empty".to_string();
-            return;
-        }
         match Anchor::from_range(&self.document, range) {
             Ok(anchor) => {
+                let original = anchor.quote.clone();
+                if original.trim().is_empty() {
+                    self.status = "Selected range is empty".to_string();
+                    return;
+                }
                 let editor = Editor::new(
                     EditorTarget {
                         id: None,
@@ -780,7 +780,9 @@ impl App {
             self.status = format!("Resolve failed: {error}");
             return;
         }
-        self.save_store();
+        if !self.save_store() {
+            return;
+        }
         self.refresh_markers();
         self.status = format!("Resolved {id}");
     }
@@ -793,7 +795,9 @@ impl App {
             self.status = format!("Unresolve failed: {error}");
             return;
         }
-        self.save_store();
+        if !self.save_store() {
+            return;
+        }
         self.refresh_markers();
         self.status = format!("Reopened {id}");
     }
@@ -824,9 +828,10 @@ impl App {
         match Anchor::from_range(&self.document, range) {
             Ok(anchor) => match self.store.reattach(&id, anchor) {
                 Ok(()) => {
-                    self.save_store();
-                    self.refresh_markers();
-                    self.status = format!("Reattached {id}");
+                    if self.save_store() {
+                        self.refresh_markers();
+                        self.status = format!("Reattached {id}");
+                    }
                 }
                 Err(error) => self.status = format!("Reattach failed: {error}"),
             },
@@ -834,10 +839,16 @@ impl App {
         }
     }
 
-    fn save_store(&mut self) {
+    fn save_store(&mut self) -> bool {
         match self.store.save(&self.sidecar) {
-            Ok(()) => self.status = "Saved".to_string(),
-            Err(error) => self.status = format!("Save failed: {error}"),
+            Ok(()) => {
+                self.status = "Saved".to_string();
+                true
+            }
+            Err(error) => {
+                self.status = format!("Save failed: {error}");
+                false
+            }
         }
     }
 
@@ -863,19 +874,22 @@ impl App {
             ConfirmAction::Signoff => {
                 if self.store.has_feedback() {
                     self.store.signoff_feedback();
-                    self.exit = Some(TuiExit::Feedback);
                 } else {
                     self.store.approve();
-                    self.exit = Some(TuiExit::Approved);
                 }
-                self.save_store();
-                self.should_quit = true;
+                if self.save_store() {
+                    self.exit = Some(if self.store.has_feedback() {
+                        TuiExit::Feedback
+                    } else {
+                        TuiExit::Approved
+                    });
+                    self.should_quit = true;
+                }
             }
             ConfirmAction::Delete(id) => {
                 if let Err(error) = self.store.remove(&id) {
                     self.status = format!("Delete failed: {error}");
-                } else {
-                    self.save_store();
+                } else if self.save_store() {
                     self.refresh_markers();
                     self.status = format!("Deleted {id}");
                 }
@@ -1319,9 +1333,10 @@ impl App {
             }
         }
         self.store.clear_draft();
-        self.save_store();
-        self.refresh_markers();
-        self.status = "Review item saved".to_string();
+        if self.save_store() {
+            self.refresh_markers();
+            self.status = "Review item saved".to_string();
+        }
     }
 
     pub fn handle_mouse(&mut self, mouse: MouseEvent) {
@@ -1492,10 +1507,12 @@ impl App {
                 self.outline_scroll = 0;
                 self.review_scroll = 0;
                 self.store.start_round_if_changed(&self.document);
-                self.save_store();
+                let saved = self.save_store();
                 self.rebuild(self.layout_width);
                 self.jump_to_source(old_source);
-                self.status = "File changed; open items re-anchored".to_string();
+                if saved {
+                    self.status = "File changed; open items re-anchored".to_string();
+                }
             }
             Err(error) => self.status = format!("Reload failed: {error}"),
         }
@@ -1785,6 +1802,31 @@ mod tests {
         app.handle_key(key(KeyCode::Char(']')));
         app.handle_key(key(KeyCode::Char(']')));
         assert_eq!(app.current_block().unwrap().index, 2);
+    }
+
+    #[test]
+    fn suggestion_original_has_no_trailing_newline_and_survives_edits() {
+        let (mut app, _dir) = fixture("# A\n\nhello\n\nother\n");
+        let line = app
+            .lines
+            .iter()
+            .position(|line| line.text.contains("hello"))
+            .unwrap();
+        app.set_cursor(line);
+        app.handle_key(key(KeyCode::Char('V')));
+        app.handle_key(key(KeyCode::Char('s')));
+        app.set_editor_text("replacement");
+        app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL));
+        let suggestion = app.store.items[0].suggestion.as_ref().unwrap();
+        assert_eq!(suggestion.original, "hello");
+
+        let mut store = app.store.clone();
+        let new_document = Document::from_source(
+            "spec.md",
+            "# A\n\nhello\n\nunrelated changed paragraph\n".to_string(),
+        );
+        store.reanchor(&new_document);
+        assert_eq!(store.items[0].status, ItemStatus::Open);
     }
 
     #[test]

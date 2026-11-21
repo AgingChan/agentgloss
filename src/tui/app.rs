@@ -718,7 +718,7 @@ impl App {
                 );
                 self.editor = Some(editor);
                 self.persist_draft();
-                self.status = "Comment editor — Ctrl+Enter saves, Esc cancels".to_string();
+                self.status = "Comment editor — F10/Ctrl+Enter saves, Esc cancels".to_string();
             }
             Err(error) => self.status = format!("Cannot anchor comment: {error}"),
         }
@@ -756,7 +756,7 @@ impl App {
                 );
                 self.editor = Some(editor);
                 self.persist_draft();
-                self.status = "Suggestion editor — Ctrl+Enter saves, Esc cancels".to_string();
+                self.status = "Suggestion editor — F10/Ctrl+Enter saves, Esc cancels".to_string();
             }
             Err(error) => self.status = format!("Cannot anchor suggestion: {error}"),
         }
@@ -797,7 +797,7 @@ impl App {
         );
         self.editor = Some(editor);
         self.persist_draft();
-        self.status = "Editing — Ctrl+Enter saves, Esc cancels".to_string();
+        self.status = "Editing — F10/Ctrl+Enter saves, Esc cancels".to_string();
     }
 
     pub fn resolve_selected(&mut self) {
@@ -978,7 +978,9 @@ impl App {
             self.cycle_focus(true);
             return;
         }
-        if key.code == KeyCode::Enter && key.modifiers.contains(KeyModifiers::CONTROL) {
+        if (key.code == KeyCode::Enter && key.modifiers.contains(KeyModifiers::CONTROL))
+            || key.code == KeyCode::F(10)
+        {
             self.open_signoff();
             return;
         }
@@ -1293,7 +1295,10 @@ impl App {
         let Some(editor) = self.editor.as_mut() else {
             return;
         };
-        if key.code == KeyCode::Enter && key.modifiers.contains(KeyModifiers::CONTROL) {
+        if (key.code == KeyCode::Enter && key.modifiers.contains(KeyModifiers::CONTROL))
+            || key.code == KeyCode::F(10)
+            || (key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL))
+        {
             self.save_editor();
             return;
         }
@@ -1855,6 +1860,27 @@ mod tests {
         app.set_cursor(0);
         app.next_heading(false);
         assert_eq!(app.current_block().unwrap().index, 1);
+    }
+
+    #[test]
+    fn f10_and_ctrl_s_save_without_ctrl_enter() {
+        let (mut app, _dir) = fixture("# A\n\nhello\n");
+        app.set_cursor(2);
+        app.handle_key(key(KeyCode::Char('c')));
+        app.set_editor_text("portable save");
+        app.handle_key(key(KeyCode::F(10)));
+        assert!(!app.is_editing());
+        assert_eq!(app.store.items[0].body, "portable save");
+
+        app.set_cursor(2);
+        app.handle_key(key(KeyCode::Char('c')));
+        app.set_editor_text("ctrl s save");
+        app.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
+        assert!(!app.is_editing());
+        assert_eq!(app.store.items[1].body, "ctrl s save");
+
+        app.handle_key(key(KeyCode::F(10)));
+        assert!(app.is_confirming());
     }
 
     #[test]

@@ -350,7 +350,7 @@ Status: IN PROGRESS
 - [x] CHANGELOG has the 0.1.0 MVP entry.
 - [x] 2,000-line parse/layout performance test passes with a generous threshold.
 - [x] Static-pie release binary exists.
-- [x] 128 tests pass in the gate run; fmt and clippy are clean.
+- [x] 131 tests pass in the gate run; fmt and clippy are clean.
 - [x] `state/acceptance.md` provides a per-feature evidence matrix.
 
 ### Remaining release blockers
@@ -424,6 +424,18 @@ Status: IN PROGRESS
   can no longer replace the editor or move the hidden cursor. Regression test:
   `tests/tui.rs::mouse_actions_do_not_bypass_an_open_editor`.
 
+### Post-QA major fixes (second release pass)
+
+- [x] **QA-1 (save portability):** added `F10` for editor save and signoff plus
+  `Ctrl+S` for editor save, while retaining `Ctrl+Enter`. A real PTY test saved
+  a comment with `F10`, read the body back from the sidecar, and opened the
+  signoff confirmation with `F10`.
+- [x] **QA-2 (custom sidecar export):** `export_prompt` now accepts the sidecar
+  override and appends `--sidecar <quoted>` to the printed resolve command.
+  Coverage includes an export unit test and a CLI custom-sidecar flow.
+- [x] **QA-3 (orphan END marker):** an END-only install now preserves content
+  before the orphan marker; the regression test includes text on both sides.
+
 ### Residual minor items (documented, not release-blocking)
 
 - Spec-mandated test matrix is broad but not exhaustive: a few clap/config,
@@ -440,7 +452,7 @@ Status: IN PROGRESS
 ### Final evidence
 
 - `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
-  `cargo test --all-features` (129 tests), and release-profile tests pass.
+  `cargo test --all-features` (131 tests), and release-profile tests pass.
 - Release binary: static-pie `x86_64-unknown-linux-musl`, `ldd` reports
   `statically linked`.
 - Real tmux PTY smoke: Markdown, outline/review panes, and a half-block Mermaid

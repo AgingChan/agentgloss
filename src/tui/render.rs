@@ -446,7 +446,7 @@ fn render_footer(frame: &mut Frame<'_>, app: &App, area: Rect) -> Vec<(Rect, Foo
         }
     }
     let hints = match app.focus {
-        Focus::Document => "Tab focus  ? help  Ctrl+Enter send  q quit",
+        Focus::Document => "Tab focus  ? help  F10/Ctrl+Enter send  q quit",
         Focus::Outline => "j/k move  Enter jump  Esc back",
         Focus::Review => {
             "j/k move  Enter jump  e edit  r reattach  x resolve  X reopen  d delete  Esc back"
@@ -486,7 +486,7 @@ fn render_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("  e                   edit selected item"),
         Line::from("  r                   reattach a stale item to the current selection"),
         Line::from("  d / Delete          delete selected item"),
-        Line::from("  Ctrl+Enter          send review / approve"),
+        Line::from("  F10/Ctrl+Enter      send review / approve"),
         Line::from("  Tab                 cycle document, outline, review"),
         Line::from("  F2 / F3             toggle input mode / rendered-source"),
         Line::from("  q                   quit (autosaves)"),
@@ -546,7 +546,7 @@ fn render_editor(frame: &mut Frame<'_>, app: &mut App, area: Rect) {
     let original = editor.original().map(ToOwned::to_owned);
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(format!("{title} · Ctrl+Enter saves · Esc cancels"));
+        .title(format!("{title} · F10/Ctrl+Enter saves · Esc cancels"));
     let inner = block.inner(popup);
     frame.render_widget(block, popup);
     let mut chunks = Vec::new();

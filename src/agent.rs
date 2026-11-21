@@ -71,7 +71,10 @@ fn upsert_block(path: &Path, block: &str) -> anyhow::Result<()> {
             existing[end + END.len()..].trim_start_matches('\n'),
         ),
         (Some(start), None) => (existing[..start].trim_end(), ""),
-        (None, Some(end)) => ("", existing[end + END.len()..].trim_start_matches('\n')),
+        (None, Some(end)) => (
+            existing[..end].trim_end(),
+            existing[end + END.len()..].trim_start_matches('\n'),
+        ),
         (Some(_), Some(_)) => {
             anyhow::bail!(
                 "malformed mdreview markers in {} (end appears before start)",
@@ -320,7 +323,9 @@ fn print_review_result(file: &Path, sidecar: &Path) -> anyhow::Result<i32> {
     if store.last_signoff.is_none() {
         return Ok(EXIT_ABORTED);
     }
-    print!("{}", export_prompt(&store, false));
+    let default_sidecar = sidecar_path(file);
+    let custom_sidecar = (sidecar != default_sidecar).then_some(sidecar);
+    print!("{}", export_prompt(&store, false, custom_sidecar));
     if store.is_approved() {
         Ok(EXIT_OK)
     } else if store.has_feedback() {
@@ -406,9 +411,14 @@ mod tests {
         assert_eq!(text.matches(END).count(), 1);
 
         let end_only = dir.path().join("GEMINI.md");
-        std::fs::write(&end_only, "<!-- mdreview:end -->\n\n# Keep\n").unwrap();
+        std::fs::write(
+            &end_only,
+            "Notes before\n\n<!-- mdreview:end -->\n\n# Keep\n",
+        )
+        .unwrap();
         install(InstallAgent::Gemini, dir.path()).unwrap();
         let text = std::fs::read_to_string(&end_only).unwrap();
+        assert!(text.contains("Notes before"), "{text}");
         assert!(text.contains("# Keep"));
         assert_eq!(text.matches(START).count(), 1);
         assert_eq!(text.matches(END).count(), 1);

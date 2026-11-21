@@ -231,13 +231,13 @@ fn run_review(args: &ReviewArgs, internal: bool) -> anyhow::Result<i32> {
         tui::TuiExit::Aborted => Ok(EXIT_ABORTED),
         tui::TuiExit::Feedback => {
             if !internal {
-                print!("{}", export_prompt(&store, false));
+                print!("{}", export_prompt(&store, false, args.sidecar.as_deref()));
             }
             Ok(EXIT_FEEDBACK)
         }
         tui::TuiExit::Approved => {
             if !internal {
-                print!("{}", export_prompt(&store, false));
+                print!("{}", export_prompt(&store, false, args.sidecar.as_deref()));
             }
             Ok(EXIT_OK)
         }
@@ -289,7 +289,7 @@ fn run_wait(args: &WaitArgs) -> anyhow::Result<i32> {
         if sidecar.exists() {
             let store = ReviewStore::load(&sidecar)?;
             if store.last_signoff.is_some() && store.doc_hash == document.hash {
-                print!("{}", export_prompt(&store, false));
+                print!("{}", export_prompt(&store, false, args.sidecar.as_deref()));
                 return Ok(if store.is_approved() {
                     EXIT_OK
                 } else {
@@ -320,7 +320,10 @@ fn run_export(args: &ExportArgs) -> anyhow::Result<i32> {
         view.reanchor(&document);
     }
     match args.format {
-        ExportFormat::Prompt => print!("{}", export_prompt(&view, args.all)),
+        ExportFormat::Prompt => print!(
+            "{}",
+            export_prompt(&view, args.all, args.sidecar.as_deref())
+        ),
         ExportFormat::Json => {
             println!(
                 "{}",

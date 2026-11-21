@@ -230,11 +230,26 @@ fn custom_sidecar_commands_work() {
         ],
     );
     assert!(status.status.success(), "{status:?}");
+    let path = dir.path().join("spec.md");
+    let document = Document::load(&path).unwrap();
+    let start = document.source.find("Hello world.").unwrap();
+    let anchor = Anchor::from_range(&document, start..start + "Hello world.".len()).unwrap();
+    let custom = dir.path().join("custom.review.json");
+    let mut store = ReviewStore::load(&custom).unwrap();
+    let id = store.add_comment(anchor, "Custom sidecar item.");
+    store.save(&custom).unwrap();
     let export = run(
         dir.path(),
         &["export", "spec.md", "--sidecar", "custom.review.json"],
     );
-    assert_eq!(export.status.code(), Some(0), "{export:?}");
+    assert_eq!(export.status.code(), Some(10), "{export:?}");
+    let prompt = String::from_utf8_lossy(&export.stdout);
+    assert!(
+        prompt.contains(&format!(
+            "mdreview resolve spec.md {id} --sidecar custom.review.json"
+        )),
+        "{prompt}"
+    );
 }
 
 #[test]

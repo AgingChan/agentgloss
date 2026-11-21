@@ -2,6 +2,7 @@
 
 use super::{ItemKind, ItemStatus, ReviewStore};
 use serde_json::{Value, json};
+use std::path::Path;
 
 pub fn status_label(store: &ReviewStore) -> &'static str {
     if store.is_approved() {
@@ -13,7 +14,11 @@ pub fn status_label(store: &ReviewStore) -> &'static str {
     }
 }
 
-pub fn export_prompt(store: &ReviewStore, include_resolved: bool) -> String {
+pub fn export_prompt(
+    store: &ReviewStore,
+    include_resolved: bool,
+    sidecar: Option<&Path>,
+) -> String {
     let items = store.feedback_items(include_resolved);
     let open = store.open_count();
     let stale = store.stale_count();
@@ -74,14 +79,18 @@ pub fn export_prompt(store: &ReviewStore, include_resolved: bool) -> String {
         "Address the items below. Answer every comment and accept or reject every suggestion.\n",
     );
     out.push_str("After editing, mark fixed items resolved:\n");
+    let sidecar_flag = sidecar
+        .map(|path| format!(" --sidecar {}", quote_command_path(&path.to_string_lossy())))
+        .unwrap_or_default();
     out.push_str(&format!(
-        "  mdreview resolve {} {}\n\n",
+        "  mdreview resolve {} {}{}\n\n",
         quote_command_path(&store.file),
         items
             .iter()
             .map(|item| item.id.as_str())
             .collect::<Vec<_>>()
-            .join(" ")
+            .join(" "),
+        sidecar_flag
     ));
 
     for (number, item) in items.iter().enumerate() {
@@ -209,7 +218,7 @@ mod tests {
     #[test]
     fn prompt_contains_numbered_items() {
         let (store, _document, id) = fixture();
-        let prompt = export_prompt(&store, false);
+        let prompt = export_prompt(&store, false, None);
         assert!(prompt.contains("# mdreview review"));
         assert!(prompt.contains("- Status: feedback"));
         assert!(prompt.contains(&format!("[{}] comment", id)));
@@ -244,7 +253,7 @@ Anchor: bytes {}-{}\n\n",
             anchor.source_start,
             anchor.source_end
         );
-        assert_eq!(export_prompt(&store, false), expected);
+        assert_eq!(export_prompt(&store, false, None), expected);
     }
 
     #[test]
@@ -252,7 +261,7 @@ Anchor: bytes {}-{}\n\n",
         let document = Document::from_source("spec.md", "# Plan\n\nOk.\n".to_string());
         let mut store = ReviewStore::new("spec.md", document.hash.clone());
         store.approve();
-        let prompt = export_prompt(&store, false);
+        let prompt = export_prompt(&store, false, None);
         let expected = format!(
             "# mdreview review\n\n- File: spec.md\n- Round: 1\n- Document hash: {}\n- Status: approved\n- Open items: 0\n\nThe reviewer approved this revision. No changes are required.\n",
             document.hash
@@ -266,7 +275,7 @@ Anchor: bytes {}-{}\n\n",
         let (mut store, _document, id) = fixture();
         store.resolve(&id).unwrap();
         store.approve();
-        let prompt = export_prompt(&store, true);
+        let prompt = export_prompt(&store, true, None);
         assert!(prompt.contains("The reviewer approved this revision."));
         assert!(prompt.contains("Resolved items (archived):"));
         assert!(prompt.contains(&format!("[{id}] comment — resolved")));
@@ -302,7 +311,7 @@ Anchor: bytes {}-{}\n\n",
     fn resolve_command_quotes_special_paths() {
         let (mut store, _document, _id) = fixture();
         store.file = "spec file #1.md".to_string();
-        let prompt = export_prompt(&store, false);
+        let prompt = export_prompt(&store, false, None);
         assert!(prompt.contains("mdreview resolve 'spec file #1.md' c1"));
     }
 
@@ -315,7 +324,7 @@ Anchor: bytes {}-{}\n\n",
         let anchor = Anchor::from_range(&document, start..end).unwrap();
         let mut store = ReviewStore::new("spec.md", document.hash.clone());
         store.add_comment(anchor, "Keep this:\n```rust\nfn main() {}\n```\n");
-        let prompt = export_prompt(&store, false);
+        let prompt = export_prompt(&store, false, None);
         assert!(prompt.contains("> First line\n>\n> Second line\n"));
         assert!(prompt.contains("Keep this:\n```rust\nfn main() {}\n```\n"));
     }
@@ -335,7 +344,7 @@ Anchor: bytes {}-{}\n\n",
             Anchor::from_range(&document, first..first + "First paragraph.".len()).unwrap(),
             "first",
         );
-        let prompt = export_prompt(&store, false);
+        let prompt = export_prompt(&store, false, None);
         assert!(prompt.contains(&format!("## 1. [{first_id}]")));
         assert!(prompt.contains(&format!("## 2. [{second_id}]")));
     }
@@ -344,7 +353,7 @@ Anchor: bytes {}-{}\n\n",
     fn empty_and_stale_only_exports_are_clear() {
         let document = Document::from_source("spec.md", "# A\n\nHello.\n".to_string());
         let empty = ReviewStore::new("spec.md", document.hash.clone());
-        let prompt = export_prompt(&empty, false);
+        let prompt = export_prompt(&empty, false, None);
         assert!(prompt.contains("Open items: 0"));
         assert!(prompt.contains("No open review items."));
         assert_eq!(export_exit_code(&empty, false), 0);
@@ -355,11 +364,23 @@ Anchor: bytes {}-{}\n\n",
         stale.add_comment(anchor, "note");
         let changed = Document::from_source("spec.md", "# A\n\nDifferent.\n".to_string());
         stale.reanchor(&changed);
-        let prompt = export_prompt(&stale, false);
+        let prompt = export_prompt(&stale, false, None);
         assert!(prompt.contains("- Open items: 0"));
         assert!(prompt.contains("- Stale items: 1"));
         assert!(prompt.contains("comment — stale"));
         assert_eq!(export_exit_code(&stale, false), 10);
+    }
+
+    #[test]
+    fn resolve_command_includes_a_custom_sidecar() {
+        let (store, _document, id) = fixture();
+        let prompt = export_prompt(&store, false, Some(Path::new("state/review #1.json")));
+        assert!(
+            prompt.contains(&format!(
+                "mdreview resolve spec.md {id} --sidecar 'state/review #1.json'"
+            )),
+            "{prompt}"
+        );
     }
 
     #[test]
@@ -371,7 +392,7 @@ Anchor: bytes {}-{}\n\n",
             Anchor::from_range(&document, start..start + "old wording here".len()).unwrap();
         let mut store = ReviewStore::new("spec.md", document.hash.clone());
         store.add_suggestion(anchor, "prefer this", "old wording", "new wording");
-        let prompt = export_prompt(&store, false);
+        let prompt = export_prompt(&store, false, None);
         assert!(prompt.contains("Original:\nold wording\nReplacement:\nnew wording\n"));
         assert!(!prompt.contains("> old wording"));
     }

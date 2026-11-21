@@ -55,7 +55,8 @@
 - Added TIOCGWINSZ font-size derivation with sane fallback; this closes the image scaling risk without an input-stealing stdio query.
 - Added media hardening: oversized files are detected from metadata before the UI-thread hash read, raster decoding uses width/height/allocation limits, and worker panics become cached errors instead of endless pending keys.
 - TUI polish: mouse clicks move focus to the clicked pane, Esc closes a narrow panel before clearing selection, and `]]`/`[[` no longer skip the first heading when the cursor starts before it.
-- 129 tests pass (82 library, 15 CLI, 31 TUI, 1 performance); fmt and clippy are clean.
+- 131 tests pass (84 library, 15 CLI, 31 TUI, 1 performance); fmt and clippy are clean.
 - Fixed MODAL-1: mouse input is ignored while an editor, confirmation, help, or search overlay is open, so footer/document clicks cannot replace or discard an editor draft.
 - Addressed QA majors: `qa.sh` now validates the model invocation before atomically persisting the report; `__tui` writes its sentinel to `MDREVIEW_RESULT_FILE` so tmux handoff no longer depends solely on popup status propagation; terminal/event-loop failures autosave and exit aborted (1); MDREVIEW-13 is marked done after the release gate.
+- Addressed the second QA pass majors: portable `F10`/`Ctrl+S` save and signoff bindings (verified in a real PTY), custom-sidecar `--sidecar` in exported resolve commands, and preservation of content before an orphan END marker.
 - Final QA rerun and release evidence: in progress.

@@ -10,7 +10,7 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
 MVP implemented and tested:
 
-- 82 library tests, 15 CLI integration tests, 31 TUI integration tests, 1 performance test (129 total)
+- 84 library tests, 15 CLI integration tests, 31 TUI integration tests, 1 performance test (131 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
@@ -92,8 +92,8 @@ Exit codes: `0` approved/no open items, `10` open feedback, `1` aborted, `2` err
 
 1. The agent writes a spec and runs `mdreview request <file>`.
 2. You run `mdreview review <file>` (separate pane, or the agent opens a tmux popup).
-3. Select text or a block, press `c` for a comment or `s` for a suggested edit, then `Ctrl+Enter` to save.
-4. `Ctrl+Enter` again opens signoff. A clean review is approved; otherwise the review is sent to the agent.
+3. Select text or a block, press `c` for a comment or `s` for a suggested edit, then `F10` (or `Ctrl+Enter`) to save.
+4. `F10` (or `Ctrl+Enter`) again opens signoff. A clean review is approved; otherwise the review is sent to the agent.
 5. The agent runs `mdreview export <file>` or `mdreview wait <file>`, addresses the numbered items, and runs `mdreview resolve <file> <ids>`.
 6. Reopen the review after the revision. Open items re-anchor; stale items remain visible for reattachment.
 
@@ -125,7 +125,7 @@ Vim mode is the default. `F2` switches between Vim and standard input.
 | Resolve / reopen / edit | `x` / `X` / `e` | `x` / `X` / `e` |
 | Reattach stale item | `r` | `r` |
 | Delete item | `d` | Delete |
-| Sign off | `Ctrl+Enter` | `Ctrl+Enter` |
+| Sign off | `F10` / `Ctrl+Enter` | `F10` / `Ctrl+Enter` |
 | Toggle view | `F3` | `F3` |
 | Focus panes | `Tab` | `Tab` |
 | Help | `?` | `F1` |

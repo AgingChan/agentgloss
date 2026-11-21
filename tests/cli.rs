@@ -286,6 +286,27 @@ fn two_round_end_to_end_flow() {
 }
 
 #[test]
+fn export_does_not_mutate_the_review_lifecycle() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let document = Document::load(&path).unwrap();
+    let sidecar = sidecar_path(&path);
+    let mut store = ReviewStore::new(path.display().to_string(), document.hash.clone());
+    store.approve();
+    store.save(&sidecar).unwrap();
+    let before = std::fs::read_to_string(&sidecar).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&path, "# Plan\n\nChanged.\n").unwrap();
+    let export = run(dir.path(), &["export", "spec.md"]);
+    assert_eq!(export.status.code(), Some(0), "{export:?}");
+    let after = std::fs::read_to_string(&sidecar).unwrap();
+    assert_eq!(before, after);
+    let value: serde_json::Value = serde_json::from_str(&after).unwrap();
+    assert_eq!(value["round"], 1);
+    assert!(value["approval"].is_object());
+}
+
+#[test]
 fn status_human_output() {
     let dir = tempfile::tempdir().unwrap();
     write_spec(dir.path());
@@ -314,7 +335,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
     let tmux = bin_dir.join("tmux");
     std::fs::write(
         &tmux,
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nexit ${TMUX_EXIT:-0}\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nexit ${TMUX_EXIT:-21}\n",
     )
     .unwrap();
     std::fs::set_permissions(&tmux, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -345,7 +366,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .current_dir(dir.path())
         .env("TMUX", "fake")
         .env("TMUX_LOG", &log)
-        .env("TMUX_EXIT", "10")
+        .env("TMUX_EXIT", "21")
         .env("PATH", &path_env)
         .output()
         .unwrap();
@@ -356,7 +377,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .current_dir(dir.path())
         .env("TMUX", "fake")
         .env("TMUX_LOG", &log)
-        .env("TMUX_EXIT", "1")
+        .env("TMUX_EXIT", "22")
         .env("PATH", &path_env)
         .output()
         .unwrap();
@@ -367,6 +388,18 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
     );
     assert!(String::from_utf8_lossy(&abort_after_signoff.stdout).is_empty());
 
+    let popup_failure = Command::new(bin())
+        .args(["review", "spec.md", "--tmux"])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("TMUX_EXIT", "1")
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert_eq!(popup_failure.status.code(), Some(2), "{popup_failure:?}");
+    assert!(String::from_utf8_lossy(&popup_failure.stderr).contains("mdreview review"));
+
     let abort_doc = dir.path().join("abort.md");
     std::fs::write(&abort_doc, "# Abort\n").unwrap();
     assert!(run(dir.path(), &["request", "abort.md"]).status.success());
@@ -375,7 +408,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .current_dir(dir.path())
         .env("TMUX", "fake")
         .env("TMUX_LOG", &log)
-        .env("TMUX_EXIT", "1")
+        .env("TMUX_EXIT", "22")
         .env("PATH", &path_env)
         .output()
         .unwrap();
@@ -407,6 +440,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .current_dir(dir.path())
         .env("TMUX", "fake")
         .env("TMUX_LOG", &log)
+        .env("TMUX_EXIT", "0")
         .env("PATH", &path_env)
         .output()
         .unwrap();
@@ -426,6 +460,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .current_dir(dir.path())
         .env("TMUX", "fake")
         .env("TMUX_LOG", &log)
+        .env("TMUX_EXIT", "0")
         .env("PATH", &path_env)
         .output()
         .unwrap();

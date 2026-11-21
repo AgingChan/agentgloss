@@ -28,3 +28,12 @@
 - Fixed stale-item reopen, page motions, malformed install markers, media status clobbering, search highlighting, Enter-to-open, normalized anchor scoring, narrow overlay size, and stale-only export headers.
 - Added coverage for two-round flows, Mermaid sequence/class diagrams, failed-render caching, Gemini/generic installs, export goldens, gutters, Enter-to-open, review/footer clicks, 100x30 layout, drafts, and file reload.
 - 98 tests pass; fmt and clippy are clean.
+
+## 2026-11-21 — Session 3: final QA majors
+
+- Export is now read-only: it renders a re-anchored view without changing round, approval, or the sidecar.
+- Reloading a changed document refreshes the outline and clamps outline/review cursors.
+- tmux uses sentinel `__tui` exit codes 20/21/22, so a missing `display-popup` (exit 1) is a clear error instead of a fake abort.
+- Oversized media errors now include dimensions; Mermaid `source` mode and failures have distinct badges; fake-`mmdc` coverage was added.
+- Decision: stale items block approval; spec 004/design wording updated.
+- 101 tests pass; fmt and clippy are clean. Final QA pass is running.

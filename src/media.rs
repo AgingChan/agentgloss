@@ -251,7 +251,7 @@ fn load_image(
     let metadata =
         std::fs::metadata(&path).with_context(|| format!("cannot stat {}", path.display()))?;
     if metadata.len() > MAX_FILE_BYTES {
-        anyhow::bail!("image is larger than 50 MB");
+        anyhow::bail!("image is larger than 50 MB ({} bytes)", metadata.len());
     }
     if is_svg(&path) {
         let svg = std::fs::read_to_string(&path)?;
@@ -297,6 +297,14 @@ fn render_with_mmdc(theme: Theme, source: &str) -> anyhow::Result<String> {
     if !command_exists("mmdc") {
         anyhow::bail!("mmdc is not installed");
     }
+    render_with_mmdc_program(std::ffi::OsStr::new("mmdc"), theme, source)
+}
+
+fn render_with_mmdc_program(
+    program: &std::ffi::OsStr,
+    theme: Theme,
+    source: &str,
+) -> anyhow::Result<String> {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
@@ -314,7 +322,7 @@ fn render_with_mmdc(theme: Theme, source: &str) -> anyhow::Result<String> {
     let input_arg = input.to_string_lossy().to_string();
     let output_arg = output.to_string_lossy().to_string();
     let result = (|| -> anyhow::Result<String> {
-        let output = Command::new("mmdc")
+        let output = Command::new(program)
             .args([
                 "-i",
                 &input_arg,
@@ -351,7 +359,11 @@ fn rasterize_svg(picker: &Picker, svg: &str, target: (u16, u16)) -> anyhow::Resu
         anyhow::bail!("SVG has zero size");
     }
     if size.width() > MAX_DIMENSION as f32 || size.height() > MAX_DIMENSION as f32 {
-        anyhow::bail!("SVG exceeds the 10,000px dimension limit");
+        anyhow::bail!(
+            "SVG dimensions {}x{} exceed the 10,000px limit",
+            size.width(),
+            size.height()
+        );
     }
     let font = picker.font_size();
     let max_width = (target.0 as f32 * font.width as f32).clamp(1.0, 4096.0);
@@ -447,10 +459,18 @@ fn is_svg(path: &Path) -> bool {
 
 fn check_dimensions(image: &DynamicImage) -> anyhow::Result<()> {
     if image.width() > MAX_DIMENSION || image.height() > MAX_DIMENSION {
-        anyhow::bail!("image exceeds the 10,000px dimension limit");
+        anyhow::bail!(
+            "image dimensions {}x{} exceed the 10,000px limit",
+            image.width(),
+            image.height()
+        );
     }
     if u64::from(image.width()) * u64::from(image.height()) > MAX_PIXELS {
-        anyhow::bail!("image exceeds the 40-megapixel limit");
+        anyhow::bail!(
+            "image dimensions {}x{} exceed the 40-megapixel limit",
+            image.width(),
+            image.height()
+        );
     }
     Ok(())
 }
@@ -573,6 +593,24 @@ mod tests {
         let again = media.ensure_mermaid("not a diagram\n", (30, 15));
         assert_eq!(key, again);
         assert!(media.error(&again).is_some());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fake_mmdc_program_returns_svg() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("mmdc");
+        std::fs::write(
+            &script,
+            "#!/bin/sh\nout=''\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = \"-o\" ]; then shift; out=\"$1\"; fi\n  shift\ndone\nprintf '%s' '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\"/></svg>' > \"$out\"\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let svg =
+            render_with_mmdc_program(script.as_os_str(), Theme::Dark, "flowchart LR\nA-->B\n")
+                .unwrap();
+        assert!(svg.contains("<svg"));
     }
 
     #[test]

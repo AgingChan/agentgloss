@@ -15,6 +15,9 @@ pub const EXIT_ABORTED: i32 = 1;
 pub const EXIT_ERROR: i32 = 2;
 pub const EXIT_TIMEOUT: i32 = 3;
 pub const EXIT_FEEDBACK: i32 = 10;
+pub const EXIT_TUI_APPROVED: i32 = 20;
+pub const EXIT_TUI_FEEDBACK: i32 = 21;
+pub const EXIT_TUI_ABORTED: i32 = 22;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -150,7 +153,15 @@ fn dispatch(cli: Cli) -> anyhow::Result<i32> {
                 run_review(&args, false)
             }
         }
-        Command::Tui(args) => run_review(&args, true),
+        Command::Tui(args) => {
+            let code = run_review(&args, true)?;
+            Ok(match code {
+                EXIT_OK => EXIT_TUI_APPROVED,
+                EXIT_FEEDBACK => EXIT_TUI_FEEDBACK,
+                EXIT_ABORTED => EXIT_TUI_ABORTED,
+                other => other,
+            })
+        }
         Command::Request { file, sidecar } => run_request(&file, sidecar.as_ref()),
         Command::Wait(args) => run_wait(&args),
         Command::Export(args) => run_export(&args),
@@ -294,22 +305,23 @@ fn run_export(args: &ExportArgs) -> anyhow::Result<i32> {
         anyhow::bail!("no review state at {}", sidecar.display());
     }
     let _lock = StoreLock::acquire(&sidecar)?;
-    let mut store = ReviewStore::load(&sidecar)?;
-    let before_hash = store.doc_hash.clone();
-    store.start_round_if_changed(&document);
-    if store.doc_hash != before_hash {
-        store.save(&sidecar)?;
+    let store = ReviewStore::load(&sidecar)?;
+    let mut view = store.clone();
+    if view.doc_hash != document.hash {
+        view.doc_hash = document.hash.clone();
+        view.approval = None;
+        view.reanchor(&document);
     }
     match args.format {
-        ExportFormat::Prompt => print!("{}", export_prompt(&store, args.all)),
+        ExportFormat::Prompt => print!("{}", export_prompt(&view, args.all)),
         ExportFormat::Json => {
             println!(
                 "{}",
-                serde_json::to_string_pretty(&export_json(&store, args.all))?
+                serde_json::to_string_pretty(&export_json(&view, args.all))?
             );
         }
     }
-    Ok(export_exit_code(&store, args.all))
+    Ok(export_exit_code(&view, args.all))
 }
 
 fn run_status(args: &StatusArgs) -> anyhow::Result<i32> {

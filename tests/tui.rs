@@ -121,11 +121,29 @@ fn file_change_reanchors_and_updates_round() {
 
     std::thread::sleep(std::time::Duration::from_millis(20));
     let path = dir.path().join("spec.md");
-    std::fs::write(&path, "# Plan\n\nIntro.\n\nHello world.\n").unwrap();
+    std::fs::write(&path, "# Plan\n\n## Added\n\nHello world.\n").unwrap();
     app.check_file_change();
     assert_eq!(app.store.items.len(), 1);
     assert_eq!(app.store.round, 2);
     assert_eq!(app.store.open_count(), 1);
+    assert_eq!(app.outline.len(), 2);
+}
+
+#[test]
+fn resolved_items_stay_archived_across_reloads() {
+    let (mut app, dir) = fixture("# Plan\n\nHello world.\n");
+    let start = app.document.source.find("Hello world.").unwrap();
+    let anchor = Anchor::from_range(&app.document, start..start + 12).unwrap();
+    let id = app.store.add_comment(anchor, "Old note.");
+    app.store.resolve(&id).unwrap();
+    app.store.signoff_feedback();
+    app.store.save(&app.sidecar).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let path = dir.path().join("spec.md");
+    std::fs::write(&path, "# Plan\n\nHello world.\n\nChanged.\n").unwrap();
+    app.check_file_change();
+    assert_eq!(app.store.resolved_count(), 1);
+    assert_eq!(app.store.open_count(), 0);
 }
 
 #[test]

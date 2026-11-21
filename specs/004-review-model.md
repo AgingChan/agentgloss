@@ -45,7 +45,7 @@
 
 - `last_signoff` is `feedback`, `approved`, or `null`.
 - `requested_at` is optional; set by `mdreview request`.
-- `approval` is valid only while its hash equals the current document hash and there are no open items.
+- `approval` is valid only while its hash equals the current document hash and there are no open or stale items.
 - IDs are `c<N>` and never reused. `next_id` is monotonic.
 - Suggestions add `suggestion: { "original": "...", "replacement": "..." }`.
 
@@ -74,7 +74,7 @@ Resolved items are never re-anchored. Every re-anchor appends a history event wi
 ## Rounds and signoff
 
 - A new review round starts when a signed-off review is reopened and the document hash changed. `round` increments once per changed revision.
-- Signoff with zero open items records approval for the current hash. Signoff with open items records `last_signoff = "feedback"` and no approval.
+- Signoff with zero open and zero stale items records approval for the current hash. Signoff with any open or stale items records `last_signoff = "feedback"` and no approval.
 - Any content change after approval invalidates the approval (hash mismatch) and starts a new round on next open.
 - Resolve sets `status = resolved`, `resolved_round = current round`, and appends history.
 - Stale items can be reattached to a new selection; reattachment sets `status = open`, updates the anchor, and records the event.

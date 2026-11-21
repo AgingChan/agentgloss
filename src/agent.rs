@@ -1,6 +1,9 @@
 //! Agent handoff, tmux launch, and install recipes.
 
-use crate::cli::{EXIT_ABORTED, EXIT_FEEDBACK, EXIT_OK, InstallAgent, ReviewArgs};
+use crate::cli::{
+    EXIT_ABORTED, EXIT_FEEDBACK, EXIT_OK, EXIT_TUI_ABORTED, EXIT_TUI_APPROVED, EXIT_TUI_FEEDBACK,
+    InstallAgent, ReviewArgs,
+};
 use crate::document::Document;
 use crate::review::export::export_prompt;
 use crate::review::{ReviewStore, sidecar_path};
@@ -197,13 +200,16 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
             )
         })?;
     let code = status.code().unwrap_or(-1);
-    if !matches!(code, 0 | 1 | 10) {
+    if !matches!(
+        code,
+        EXIT_TUI_APPROVED | EXIT_TUI_FEEDBACK | EXIT_TUI_ABORTED
+    ) {
         anyhow::bail!(
             "tmux display-popup failed (status {code}); run `mdreview review {}` in your terminal instead",
             args.file.display()
         );
     }
-    if code == EXIT_ABORTED {
+    if code == EXIT_TUI_ABORTED {
         return Ok(EXIT_ABORTED);
     }
     print_review_result(&args.file, &sidecar)

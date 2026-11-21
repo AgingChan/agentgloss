@@ -1482,6 +1482,15 @@ impl App {
                 self.document = document;
                 self.last_meta = file_meta(&self.document.path);
                 self.mermaid_source.clear();
+                self.outline = build_outline(&self.document);
+                self.outline_cursor = self
+                    .outline_cursor
+                    .min(self.outline.len().saturating_sub(1));
+                self.review_cursor = self
+                    .review_cursor
+                    .min(self.store.items.len().saturating_sub(1));
+                self.outline_scroll = 0;
+                self.review_scroll = 0;
                 self.store.start_round_if_changed(&self.document);
                 self.save_store();
                 self.rebuild(self.layout_width);

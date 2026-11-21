@@ -44,3 +44,17 @@
 - Fixed the QA harness heredoc so backticks in the prompt are literal, not shell substitutions; validated with a fake `claude` capture.
 - Save failures no longer get overwritten by success status messages.
 - 102 tests pass; fmt and clippy clean; final QA is running.
+
+## 2026-11-21 — Session 5: final QA fixes and release
+
+- QA found one task-level failure: remote image URLs were not rendered as link-styled text. They now render as links, schedule no media worker, and keep the full image source range for comments.
+- Mermaid `source` engine mode now shows source directly without spawning a failing render worker or a "diagram unavailable" badge.
+- Approved exports with `--all` now print the approval line and a `Resolved items (archived):` section, with no action instructions or resolve commands.
+- Agent install repairs partial marker blocks, errors on malformed/end-before-start markers, and refuses to overwrite unreadable or non-UTF-8 files.
+- Added anchor-matrix tests (inserted/deleted text, heading moves, Unicode normalization, Jaccard fallback), parser edge tests (empty, CRLF, no trailing newline, tasks, rules, footnotes, nested lists), export edge tests (blank quote lines, fenced bodies, ordering, empty/stale-only), media tests (WebP, pixel limits, file cap, explicit protocol, Auto `mmdc` fallback), an approved tmux popup test, and media-row/no-label checks.
+- Added TIOCGWINSZ font-size derivation with sane fallback; this closes the image scaling risk without an input-stealing stdio query.
+- Added media hardening: oversized files are detected from metadata before the UI-thread hash read, raster decoding uses width/height/allocation limits, and worker panics become cached errors instead of endless pending keys.
+- TUI polish: mouse clicks move focus to the clicked pane, Esc closes a narrow panel before clearing selection, and `]]`/`[[` no longer skip the first heading when the cursor starts before it.
+- 128 tests pass (82 library, 15 CLI, 30 TUI, 1 performance); fmt and clippy are clean.
+- Addressed QA majors: `qa.sh` now validates the model invocation before atomically persisting the report; `__tui` writes its sentinel to `MDREVIEW_RESULT_FILE` so tmux handoff no longer depends solely on popup status propagation; terminal/event-loop failures autosave and exit aborted (1); MDREVIEW-13 is marked done after the release gate.
+- Final QA rerun and release evidence: in progress.

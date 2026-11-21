@@ -335,7 +335,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
     let tmux = bin_dir.join("tmux");
     std::fs::write(
         &tmux,
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nexit ${TMUX_EXIT:-21}\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nif [ -n \"${TMUX_FAKE_RESULT:-}\" ]; then printf '%s\\n' \"$TMUX_FAKE_RESULT\" > \"$MDREVIEW_RESULT_FILE\"; fi\nexit ${TMUX_EXIT:-21}\n",
     )
     .unwrap();
     std::fs::set_permissions(&tmux, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -360,6 +360,9 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
     assert!(recorded.contains("display-popup"));
     assert!(recorded.contains("__tui"));
     assert!(recorded.contains("spec.md"));
+    assert!(recorded.contains("-E"));
+    assert!(recorded.contains("-w"));
+    assert!(recorded.contains("90%"));
 
     let feedback_exit = Command::new(bin())
         .args(["review", "spec.md", "--tmux"])
@@ -371,6 +374,23 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .output()
         .unwrap();
     assert_eq!(feedback_exit.status.code(), Some(10), "{feedback_exit:?}");
+
+    let result_fallback = Command::new(bin())
+        .args(["review", "spec.md", "--tmux"])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("TMUX_EXIT", "1")
+        .env("TMUX_FAKE_RESULT", "21")
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert_eq!(
+        result_fallback.status.code(),
+        Some(10),
+        "{result_fallback:?}"
+    );
+    assert!(String::from_utf8_lossy(&result_fallback.stdout).contains("Review this."));
 
     let abort_after_signoff = Command::new(bin())
         .args(["review", "spec.md", "--tmux"])
@@ -387,6 +407,28 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         "{abort_after_signoff:?}"
     );
     assert!(String::from_utf8_lossy(&abort_after_signoff.stdout).is_empty());
+
+    let approved_doc = dir.path().join("approved.md");
+    std::fs::copy(&path, &approved_doc).unwrap();
+    let approved_sidecar = sidecar_path(&approved_doc);
+    let approved_id = seed_comment(&approved_doc, "Review this.");
+    let mut approved_store = ReviewStore::load(&approved_sidecar).unwrap();
+    approved_store.resolve(&approved_id).unwrap();
+    approved_store.approve();
+    approved_store.save(&approved_sidecar).unwrap();
+    let approved = Command::new(bin())
+        .args(["review", "approved.md", "--tmux"])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("TMUX_EXIT", "20")
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert_eq!(approved.status.code(), Some(0), "{approved:?}");
+    assert!(
+        String::from_utf8_lossy(&approved.stdout).contains("The reviewer approved this revision.")
+    );
 
     let popup_failure = Command::new(bin())
         .args(["review", "spec.md", "--tmux"])

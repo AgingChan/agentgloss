@@ -54,14 +54,31 @@ fn write_file(path: &Path, content: &str) -> anyhow::Result<()> {
 }
 
 fn upsert_block(path: &Path, block: &str) -> anyhow::Result<()> {
-    let existing = std::fs::read_to_string(path).unwrap_or_default();
+    let existing = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => {
+            return Err(anyhow::anyhow!(
+                "cannot read {} before updating it: {error}",
+                path.display()
+            ));
+        }
+    };
     let block = block.trim_end();
     let (before, after) = match (existing.find(START), existing.find(END)) {
         (Some(start), Some(end)) if end > start => (
             existing[..start].trim_end(),
             existing[end + END.len()..].trim_start_matches('\n'),
         ),
-        _ => (existing.trim_end(), ""),
+        (Some(start), None) => (existing[..start].trim_end(), ""),
+        (None, Some(end)) => ("", existing[end + END.len()..].trim_start_matches('\n')),
+        (Some(_), Some(_)) => {
+            anyhow::bail!(
+                "malformed mdreview markers in {} (end appears before start)",
+                path.display()
+            );
+        }
+        (None, None) => (existing.trim_end(), ""),
     };
     let mut content = String::new();
     if !before.is_empty() {
@@ -169,18 +186,24 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
         if let Some(sidecar) = &args.sidecar {
             println!(
                 "Agent: mdreview wait {} --sidecar {}",
-                args.file.display(),
-                sidecar.display()
+                display_path(&args.file),
+                display_path(sidecar)
             );
         } else {
-            println!("Agent: mdreview wait {}", args.file.display());
+            println!("Agent: mdreview wait {}", display_path(&args.file));
         }
         return Ok(EXIT_OK);
     }
 
     let title = format!("mdreview: {}", args.file.display());
     let sidecar = review_sidecar(args);
-    let status = Command::new("tmux")
+    let result_file = tui_result_path();
+    let popup_command = format!(
+        "MDREVIEW_RESULT_FILE={} {}",
+        shell_quote(result_file.as_os_str()),
+        command
+    );
+    let status = match Command::new("tmux")
         .args([
             "display-popup",
             "-E",
@@ -190,16 +213,25 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
             "90%",
             "-T",
             &title,
-            &command,
+            &popup_command,
         ])
+        .env("MDREVIEW_RESULT_FILE", &result_file)
         .status()
-        .map_err(|error| {
-            anyhow::anyhow!(
+    {
+        Ok(status) => status,
+        Err(error) => {
+            let _ = std::fs::remove_file(&result_file);
+            anyhow::bail!(
                 "cannot run tmux display-popup: {error}; run `mdreview review {}` in your terminal instead",
                 args.file.display()
-            )
-        })?;
-    let code = status.code().unwrap_or(-1);
+            );
+        }
+    };
+    let file_code = std::fs::read_to_string(&result_file)
+        .ok()
+        .and_then(|text| text.trim().parse::<i32>().ok());
+    let _ = std::fs::remove_file(&result_file);
+    let code = file_code.unwrap_or_else(|| status.code().unwrap_or(-1));
     if !matches!(
         code,
         EXIT_TUI_APPROVED | EXIT_TUI_FEEDBACK | EXIT_TUI_ABORTED
@@ -219,6 +251,17 @@ fn review_sidecar(args: &ReviewArgs) -> PathBuf {
     args.sidecar
         .clone()
         .unwrap_or_else(|| sidecar_path(&args.file))
+}
+
+fn tui_result_path() -> PathBuf {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    std::env::temp_dir().join(format!(
+        "mdreview-tui-result-{}-{stamp}.txt",
+        std::process::id()
+    ))
 }
 
 fn tui_command(args: &ReviewArgs) -> anyhow::Result<String> {
@@ -253,6 +296,18 @@ fn tui_command(args: &ReviewArgs) -> anyhow::Result<String> {
 fn shell_quote(value: &OsStr) -> String {
     let text = value.to_string_lossy();
     format!("'{}'", text.replace('\'', "'\\''"))
+}
+
+pub(crate) fn display_path(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    if text
+        .chars()
+        .any(|ch| ch.is_whitespace() || "'\"\\$`&;|<>()*?[]{}!#".contains(ch))
+    {
+        shell_quote(path.as_os_str())
+    } else {
+        text.into_owned()
+    }
 }
 
 fn print_review_result(file: &Path, sidecar: &Path) -> anyhow::Result<i32> {
@@ -335,8 +390,50 @@ mod tests {
     }
 
     #[test]
+    fn repairs_partial_marker_blocks() {
+        let dir = tempfile::tempdir().unwrap();
+        let start_only = dir.path().join("AGENTS.md");
+        std::fs::write(
+            &start_only,
+            "# Keep\n\n<!-- mdreview:start -->\norphaned text\n",
+        )
+        .unwrap();
+        install(InstallAgent::Codex, dir.path()).unwrap();
+        let text = std::fs::read_to_string(&start_only).unwrap();
+        assert!(text.contains("# Keep"));
+        assert!(!text.contains("orphaned text"), "{text}");
+        assert_eq!(text.matches(START).count(), 1);
+        assert_eq!(text.matches(END).count(), 1);
+
+        let end_only = dir.path().join("GEMINI.md");
+        std::fs::write(&end_only, "<!-- mdreview:end -->\n\n# Keep\n").unwrap();
+        install(InstallAgent::Gemini, dir.path()).unwrap();
+        let text = std::fs::read_to_string(&end_only).unwrap();
+        assert!(text.contains("# Keep"));
+        assert_eq!(text.matches(START).count(), 1);
+        assert_eq!(text.matches(END).count(), 1);
+    }
+
+    #[test]
+    fn malformed_markers_and_unreadable_files_are_not_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let malformed = dir.path().join("AGENTS.md");
+        let before = "<!-- mdreview:end -->\nkeep\n<!-- mdreview:start -->\n";
+        std::fs::write(&malformed, before).unwrap();
+        assert!(install(InstallAgent::Codex, dir.path()).is_err());
+        assert_eq!(std::fs::read_to_string(&malformed).unwrap(), before);
+
+        let binary = dir.path().join("GEMINI.md");
+        std::fs::write(&binary, [0xff, 0xfe, 0x00]).unwrap();
+        assert!(install(InstallAgent::Gemini, dir.path()).is_err());
+        assert_eq!(std::fs::read(&binary).unwrap(), vec![0xff, 0xfe, 0x00]);
+    }
+
+    #[test]
     fn shell_quotes_spaces_and_quotes() {
         assert_eq!(shell_quote(OsStr::new("a b")), "'a b'");
         assert_eq!(shell_quote(OsStr::new("it's")), "'it'\\''s'");
+        assert_eq!(display_path(Path::new("a b.md")), "'a b.md'");
+        assert_eq!(display_path(Path::new("plain.md")), "plain.md");
     }
 }

@@ -169,6 +169,59 @@ fn image_media_is_prepared_and_cached() {
 }
 
 #[test]
+fn loaded_image_rows_do_not_contain_the_media_label() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("spec.md");
+    let image_path = dir.path().join("red.png");
+    let image = image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
+    image.save(&image_path).unwrap();
+    std::fs::write(&path, "# Media\n\n![red](red.png)\n").unwrap();
+    let document = Document::load(&path).unwrap();
+    let store = ReviewStore::new(path.display().to_string(), document.hash.clone());
+    let mut app = App::new(document, store, sidecar_path(&path), options(dir.path()));
+    draw(&mut app, 120, 40);
+    let key = app.media_keys.values().next().unwrap().clone();
+    assert!(
+        app.media.wait_for(&key, std::time::Duration::from_secs(10)),
+        "{:?}",
+        app.media.error(&key)
+    );
+    draw(&mut app, 120, 40);
+
+    let layout = app.layout.clone().unwrap();
+    let line = app
+        .lines
+        .iter()
+        .position(|line| line.is_media())
+        .expect("media line");
+    let y = layout.doc.y + (line.saturating_sub(app.scroll)) as u16;
+    let backend = TestBackend::new(120, 40);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal
+        .draw(|frame| render::draw(frame, &mut app))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let row: String = (0..buffer.area.width)
+        .map(|x| buffer[(x, y)].symbol())
+        .collect();
+    assert!(!row.contains("image"), "{row:?}");
+    assert!(!row.contains("red.png"), "{row:?}");
+}
+
+#[test]
+fn remote_image_renders_as_a_link_without_starting_a_worker() {
+    let (mut app, _dir) = fixture("# Remote\n\n![diagram](https://example.com/remote.png)\n");
+    let text = draw(&mut app, 100, 30);
+    assert!(text.contains("https://example.com/remote.png"), "{text}");
+    assert!(text.contains("diagram"), "{text}");
+    assert!(
+        app.media_keys.is_empty(),
+        "remote images must not schedule media work: {:?}",
+        app.media_keys
+    );
+}
+
+#[test]
 fn mermaid_media_is_prepared_and_cached() {
     let (mut app, _dir) = fixture("# Diagram\n\n```mermaid\nflowchart LR\nA-->B\n```\n");
     draw(&mut app, 100, 30);
@@ -180,6 +233,31 @@ fn mermaid_media_is_prepared_and_cached() {
         app.media.error(&key)
     );
     assert!(app.media.get(&key).is_some());
+}
+
+#[test]
+fn partially_visible_media_keeps_a_stable_cache_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("spec.md");
+    let image_path = dir.path().join("red.png");
+    image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]))
+        .save(&image_path)
+        .unwrap();
+    let mut source = String::from("# Media\n\n");
+    for index in 0..6 {
+        source.push_str(&format!("Paragraph {index} before the image.\n\n"));
+    }
+    source.push_str("![red](red.png)\n");
+    std::fs::write(&path, source).unwrap();
+    let document = Document::load(&path).unwrap();
+    let store = ReviewStore::new(path.display().to_string(), document.hash.clone());
+    let mut app = App::new(document, store, sidecar_path(&path), options(dir.path()));
+    draw(&mut app, 80, 20);
+    let first = app.media_keys.values().next().unwrap().clone();
+    app.scroll(2);
+    draw(&mut app, 80, 20);
+    let second = app.media_keys.values().next().unwrap().clone();
+    assert_eq!(first, second);
 }
 
 #[test]
@@ -223,8 +301,8 @@ fn review_panel_and_footer_clicks_work() {
     let anchor = Anchor::from_range(&app.document, start..start + 11).unwrap();
     app.store.add_comment(anchor, "note");
     app.refresh_markers();
-    app.focus = Focus::Review;
-    draw(&mut app, 80, 24);
+    app.focus = Focus::Document;
+    draw(&mut app, 120, 40);
     let review = app.layout.as_ref().unwrap().review.unwrap();
     app.handle_mouse(MouseEvent {
         kind: MouseEventKind::Down(MouseButton::Left),
@@ -233,6 +311,7 @@ fn review_panel_and_footer_clicks_work() {
         modifiers: KeyModifiers::NONE,
     });
     assert_eq!(app.review_cursor, 0);
+    assert_eq!(app.focus, Focus::Review);
 
     app.focus = Focus::Document;
     draw(&mut app, 80, 24);
@@ -249,6 +328,25 @@ fn review_panel_and_footer_clicks_work() {
         modifiers: KeyModifiers::NONE,
     });
     assert!(app.is_editing());
+}
+
+#[test]
+fn send_button_hits_the_send_action() {
+    let (mut app, _dir) = fixture("# A\n\nhello\n");
+    draw(&mut app, 80, 24);
+    let layout = app.layout.clone().unwrap();
+    let (send, _) = layout
+        .footer_buttons
+        .iter()
+        .find(|(_, action)| *action == mdreview::tui::app::FooterAction::Send)
+        .unwrap();
+    app.handle_mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: send.x,
+        row: send.y,
+        modifiers: KeyModifiers::NONE,
+    });
+    assert!(app.is_confirming());
 }
 
 #[test]
@@ -300,6 +398,22 @@ fn narrow_overlay_is_clickable() {
 }
 
 #[test]
+fn esc_closes_a_narrow_panel_before_clearing_the_selection() {
+    let (mut app, _dir) = fixture("# A\n\none\n\n## B\n\ntwo\n");
+    app.handle_key(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
+    assert!(app.selection.is_some());
+    app.focus = Focus::Review;
+    draw(&mut app, 60, 24);
+    app.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    assert_eq!(app.focus, Focus::Document);
+    assert!(app.selection.is_some());
+    draw(&mut app, 60, 24);
+    assert!(app.layout.as_ref().unwrap().review.is_none());
+    app.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    assert!(app.selection.is_none());
+}
+
+#[test]
 fn shift_tab_cycles_focus_backwards() {
     let (mut app, _dir) = fixture("# A\n\none\n");
     app.handle_key(KeyEvent::new(KeyCode::BackTab, KeyModifiers::NONE));
@@ -321,6 +435,7 @@ fn panel_first_row_click_selects_first_item() {
     };
     app.handle_mouse(click);
     assert_eq!(app.outline_cursor, 0);
+    assert_eq!(app.focus, Focus::Outline);
 }
 
 #[test]
@@ -360,6 +475,8 @@ fn wheel_and_mouse_disabled() {
         modifiers: KeyModifiers::NONE,
     });
     assert_eq!(app.scroll, 3);
+    draw(&mut app, 80, 24);
+    assert_eq!(app.scroll, 3, "wheel scroll should survive a redraw");
     app.mouse_enabled = false;
     let before = app.cursor;
     app.handle_mouse(MouseEvent {
@@ -434,17 +551,16 @@ fn invalid_mermaid_renders_source_fallback() {
 }
 
 #[test]
-fn mermaid_source_engine_renders_source_fallback() {
+fn mermaid_source_engine_renders_source_without_starting_a_worker() {
     let (mut app, _dir) = fixture_with_engine(
         "# Diagram\n\n```mermaid\nflowchart LR\n  A-->B\n```\n",
         MermaidEngine::Source,
     );
-    draw(&mut app, 100, 30);
-    let key = app.media_keys.values().next().unwrap().clone();
-    assert!(app.media.wait_for(&key, std::time::Duration::from_secs(10)));
     let text = draw(&mut app, 100, 30);
-    assert!(text.contains("diagram unavailable"), "{text}");
+    assert!(app.media_keys.is_empty(), "{:?}", app.media_keys);
+    assert!(text.contains("Mermaid source"), "{text}");
     assert!(text.contains("flowchart LR"), "{text}");
+    assert!(!text.contains("diagram unavailable"), "{text}");
 }
 
 #[test]

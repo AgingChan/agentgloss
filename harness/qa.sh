@@ -16,6 +16,7 @@ fi
 
 TASK_ID="${1:-}"
 QA_LOG="$LOG_DIR/qa-$(date +%Y%m%d-%H%M%S).log"
+STATE_REPORT="$PROJECT_ROOT/state/qa_report.md"
 TASK_FILTER=""
 
 if [ -n "$TASK_ID" ]; then
@@ -38,12 +39,21 @@ else
     echo "QA scope: all completed tasks"
 fi
 
+echo "Running gate for QA evidence..."
+GATE_OUTPUT=$(./harness/gate.sh 2>&1 || true)
+
 echo "Log: $QA_LOG"
+echo "Report: $STATE_REPORT"
 echo ""
+
+PROMPT_FILE=$(mktemp)
+QA_OUTPUT=$(mktemp)
+trap 'rm -f "$PROMPT_FILE" "$QA_OUTPUT"' EXIT
 
 {
     printf '# mdreview QA Evaluator Pass\n\n'
     printf '%s\n\n' "${TASK_FILTER:-Evaluate ALL recently completed tasks.}"
+    printf '## Current gate output\n\n```\n%s\n```\n\n' "$GATE_OUTPUT"
     cat <<'PROMPT'
 You are a skeptical QA evaluator for mdreview, a Rust terminal Markdown spec reviewer.
 
@@ -83,9 +93,31 @@ Write actionable findings to `state/fix_plan.md`.
 - Verify tests assert meaningful behavior, not just that code does not crash.
 - A spec requirement with no corresponding implementation is a FAIL.
 PROMPT
-} | claude --print 2>&1 | tee "$QA_LOG"
+} > "$PROMPT_FILE"
+
+set +e
+claude --print < "$PROMPT_FILE" > "$QA_OUTPUT" 2>&1
+CLAUDE_STATUS=$?
+set -e
+
+# Harness wrappers can emit a non-fatal model-selection warning on stderr.
+grep -v '^\[claude-code:' "$QA_OUTPUT" > "$QA_LOG" || true
+if [ "$CLAUDE_STATUS" -ne 0 ]; then
+    echo "ERROR: claude QA invocation failed (status $CLAUDE_STATUS)"
+    cat "$QA_LOG"
+    exit 1
+fi
+if [ ! -s "$QA_LOG" ] || ! grep -q '^# mdreview QA Evaluator Pass' "$QA_LOG"; then
+    echo "ERROR: QA output is empty or malformed; raw output follows"
+    cat "$QA_OUTPUT"
+    exit 1
+fi
+
+cp "$QA_LOG" "$STATE_REPORT.tmp"
+mv "$STATE_REPORT.tmp" "$STATE_REPORT"
 
 echo ""
 echo "--- QA pass completed at $(date) ---"
-echo "Results in: $QA_LOG"
+echo "Report: $QA_LOG"
+echo "Persisted: $STATE_REPORT"
 echo "Action items in: state/fix_plan.md"

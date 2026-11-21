@@ -429,11 +429,17 @@ impl ReviewStore {
 
     pub fn reattach(&mut self, id: &str, anchor: Anchor) -> Result<(), ReviewError> {
         let round = self.round;
+        let new_original = anchor.quote.clone();
         let item = self
             .item_mut(id)
             .ok_or_else(|| ReviewError::ItemNotFound(id.to_string()))?;
         let old_start = item.anchor.source_start;
         item.anchor = anchor;
+        if item.kind == ItemKind::Suggestion
+            && let Some(suggestion) = item.suggestion.as_mut()
+        {
+            suggestion.original = new_original;
+        }
         item.status = ItemStatus::Open;
         item.updated_at = now();
         item.history.push(AnchorEvent {
@@ -964,6 +970,70 @@ mod tests {
     }
 
     #[test]
+    fn inserted_and_deleted_text_fall_back_to_the_block() {
+        let old = doc("# Plan\n\nalpha beta gamma delta\n");
+        let anchor = anchor_for(&old, "alpha beta gamma delta");
+        let mut inserted_store = ReviewStore::new("spec.md", old.hash.clone());
+        inserted_store.add_comment(anchor.clone(), "note");
+        let inserted = doc("# Plan\n\nalpha beta INSERT gamma delta\n");
+        inserted_store.reanchor(&inserted);
+        let item = &inserted_store.items[0];
+        assert_eq!(item.status, ItemStatus::Open);
+        assert_eq!(item.history.last().unwrap().method, "block");
+        assert!(inserted.source[item.anchor.range()].contains("INSERT"));
+
+        let mut deleted_store = ReviewStore::new("spec.md", old.hash.clone());
+        deleted_store.add_comment(anchor, "note");
+        let deleted = doc("# Plan\n\nalpha beta delta\n");
+        deleted_store.reanchor(&deleted);
+        let item = &deleted_store.items[0];
+        assert_eq!(item.status, ItemStatus::Open);
+        assert_eq!(item.history.last().unwrap().method, "block");
+        assert!(deleted.source[item.anchor.range()].contains("alpha beta delta"));
+    }
+
+    #[test]
+    fn heading_moves_update_the_heading_path() {
+        let old = doc("# A\n\ntext here\n");
+        let anchor = anchor_for(&old, "text here");
+        let mut store = ReviewStore::new("spec.md", old.hash.clone());
+        store.add_comment(anchor, "note");
+        let new = doc("# B\n\ntext here\n");
+        store.reanchor(&new);
+        let item = &store.items[0];
+        assert_eq!(item.status, ItemStatus::Open);
+        assert_eq!(item.anchor.heading_path, vec!["B"]);
+        assert_eq!(item.history.last().unwrap().method, "exact");
+    }
+
+    #[test]
+    fn unicode_quotes_and_normalized_whitespace_reanchor() {
+        let old = doc("# Café ☕\n\nnaïve  你好  👋\n");
+        let anchor = anchor_for(&old, "naïve  你好  👋");
+        let mut store = ReviewStore::new("spec.md", old.hash.clone());
+        store.add_comment(anchor, "note");
+        let new = doc("# Café ☕\n\nintro\n\nnaïve 你好 👋\n");
+        store.reanchor(&new);
+        let item = &store.items[0];
+        assert_eq!(item.status, ItemStatus::Open);
+        assert_eq!(item.history.last().unwrap().method, "normalized");
+        assert!(new.source[item.anchor.range()].contains("👋"));
+    }
+
+    #[test]
+    fn jaccard_fallback_requires_half_the_tokens() {
+        let old = doc("# Plan\n\nalpha beta gamma delta\n");
+        let anchor = anchor_for(&old, "alpha beta gamma delta");
+        let mut store = ReviewStore::new("spec.md", old.hash.clone());
+        store.add_comment(anchor, "note");
+        let new = doc("# Plan\n\nalpha beta gamma epsilon zeta\n");
+        store.reanchor(&new);
+        let item = &store.items[0];
+        assert_eq!(item.status, ItemStatus::Open);
+        assert_eq!(item.history.last().unwrap().method, "block");
+    }
+
+    #[test]
     fn missing_text_goes_stale() {
         let old = doc("# A\n\nplease remove this paragraph\n");
         let anchor = anchor_for(&old, "please remove this paragraph");
@@ -986,6 +1056,22 @@ mod tests {
         let new = doc("# A\n\nuse replaced phrasing here\n");
         store.reanchor(&new);
         assert_eq!(store.items[0].status, ItemStatus::Stale);
+    }
+
+    #[test]
+    fn reattach_refreshes_suggestion_original() {
+        let old = doc("# A\n\nold target\n");
+        let anchor = anchor_for(&old, "old target");
+        let mut store = ReviewStore::new("spec.md", old.hash.clone());
+        let id = store.add_suggestion(anchor, "", "old target", "replacement");
+        let new = doc("# A\n\nnew selected text\n");
+        let new_anchor = anchor_for(&new, "new selected text");
+        store.items[0].status = ItemStatus::Stale;
+        store.reattach(&id, new_anchor).unwrap();
+        let suggestion = store.items[0].suggestion.as_ref().unwrap();
+        assert_eq!(suggestion.original, "new selected text");
+        store.reanchor(&new);
+        assert_eq!(store.items[0].status, ItemStatus::Open);
     }
 
     #[test]

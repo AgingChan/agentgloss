@@ -14,6 +14,7 @@ use ratatui_image::Image;
 pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     let area = frame.area();
     if area.width < 20 || area.height < 10 {
+        app.layout = None;
         frame.render_widget(
             Paragraph::new("Terminal too small for mdreview.\nMinimum: 20x10")
                 .wrap(Wrap { trim: true }),
@@ -280,10 +281,12 @@ fn render_media(frame: &mut Frame<'_>, app: &App, area: Rect) {
             area.width,
             (group_end - group_start) as u16,
         );
-        if app.mermaid_source.contains(&block) {
-            if let Some(crate::document::BlockKind::Mermaid { source }) =
-                app.document.blocks.get(block).map(|block| &block.kind)
-            {
+        let mermaid_kind = app.document.blocks.get(block).map(|block| &block.kind);
+        let source_mode = app.mermaid_source.contains(&block)
+            || (app.options.mermaid_engine == crate::config::MermaidEngine::Source
+                && matches!(mermaid_kind, Some(BlockKind::Mermaid { .. })));
+        if source_mode {
+            if let Some(BlockKind::Mermaid { source }) = mermaid_kind {
                 render_mermaid_source(frame, source, rect, "Mermaid source");
             }
             index = group_end;
@@ -421,14 +424,14 @@ fn render_footer(frame: &mut Frame<'_>, app: &App, area: Rect) -> Vec<(Rect, Foo
         ("Send", FooterAction::Send),
     ];
     let mut spans = Vec::new();
-    let mut x = area.x + 1;
-    for (label, action) in labels {
+    let mut x = area.x;
+    for (index, (label, action)) in labels.iter().enumerate() {
         let text = format!("[{label}]");
         let width = text.chars().count() as u16;
-        if x + width >= area.right() {
+        if x + width > area.right() {
             break;
         }
-        buttons.push((Rect::new(x, y, width, 1), action));
+        buttons.push((Rect::new(x, y, width, 1), *action));
         spans.push(Span::styled(
             text,
             Style::default()
@@ -436,17 +439,21 @@ fn render_footer(frame: &mut Frame<'_>, app: &App, area: Rect) -> Vec<(Rect, Foo
                 .bg(Color::Gray)
                 .add_modifier(Modifier::BOLD),
         ));
-        x += width + 1;
+        x += width;
+        if index + 1 < labels.len() && x < area.right() {
+            spans.push(Span::raw(" "));
+            x += 1;
+        }
     }
     let hints = match app.focus {
-        Focus::Document => "  Tab focus  ? help  Ctrl+Enter send  q quit",
-        Focus::Outline => "  j/k move  Enter jump  Esc back",
+        Focus::Document => "Tab focus  ? help  Ctrl+Enter send  q quit",
+        Focus::Outline => "j/k move  Enter jump  Esc back",
         Focus::Review => {
-            "  j/k move  Enter jump  e edit  r reattach  x resolve  X reopen  d delete  Esc back"
+            "j/k move  Enter jump  e edit  r reattach  x resolve  X reopen  d delete  Esc back"
         }
     };
     spans.push(Span::styled(
-        truncate(hints, area.width.saturating_sub(x) as usize),
+        truncate(hints, area.right().saturating_sub(x) as usize),
         Style::default().fg(Color::DarkGray),
     ));
     frame.render_widget(

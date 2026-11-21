@@ -274,7 +274,7 @@
       "id": "MDREVIEW-13",
       "title": "End-to-end QA, performance, docs, release",
       "spec": "specs/009-qa.md",
-      "status": "in_progress",
+      "status": "done",
       "priority": 13,
       "depends_on": [
         "MDREVIEW-8",
@@ -295,7 +295,7 @@
           "static binary"
         ]
       },
-      "completed_at": null
+      "completed_at": "2026-11-21T13:26:03Z"
     }
   ]
 }

@@ -60,14 +60,27 @@ pub fn layout(document: &Document, width: usize) -> Vec<VisualLine> {
                 } else {
                     format!("[image: {alt}] ({src})")
                 };
-                for _ in 0..IMAGE_ROWS {
-                    out.push(media_line(
-                        &label,
-                        block.source.clone(),
-                        block.index,
-                        MediaKind::Image,
-                        document,
-                    ));
+                if is_remote_image(src) {
+                    let mut cells = Vec::new();
+                    push_str(&mut cells, &label, InlineStyle::Link, block.source.start);
+                    for cell in &mut cells {
+                        cell.source = block.source.clone();
+                    }
+                    let mut lines = wrap_cells(&cells, width, block.index, document);
+                    if lines.is_empty() {
+                        lines.push(blank_line(block.source.start, block.index, document));
+                    }
+                    out.extend(lines);
+                } else {
+                    for _ in 0..IMAGE_ROWS {
+                        out.push(media_line(
+                            &label,
+                            block.source.clone(),
+                            block.index,
+                            MediaKind::Image,
+                            document,
+                        ));
+                    }
                 }
             }
             BlockKind::Mermaid { .. } => {
@@ -316,6 +329,11 @@ fn blank_line(source: usize, block: usize, document: &Document) -> VisualLine {
     }
 }
 
+fn is_remote_image(src: &str) -> bool {
+    let lower = src.to_ascii_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
 fn media_line(
     label: &str,
     source: Range<usize>,
@@ -361,6 +379,24 @@ mod tests {
         let lines = layout(&doc, 6);
         assert!(lines.len() >= 3, "{lines:?}");
         assert!(lines.iter().all(|l| l.text.chars().count() <= 3));
+    }
+
+    #[test]
+    fn remote_images_render_as_link_text_without_media_rows() {
+        let source = "# Remote\n\n![diagram](https://example.com/a.png)\n";
+        let doc = Document::from_source("x.md", source.to_string());
+        let lines = layout(&doc, 80);
+        assert!(lines.iter().all(|line| !line.is_media()), "{lines:?}");
+        let link = lines
+            .iter()
+            .find(|line| line.text.contains("https://example.com/a.png"))
+            .expect("remote URL line");
+        assert!(link.text.contains("diagram"));
+        assert!(
+            link.spans
+                .iter()
+                .any(|span| span.style == InlineStyle::Link)
+        );
     }
 
     #[test]

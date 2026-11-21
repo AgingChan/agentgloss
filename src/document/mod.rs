@@ -913,6 +913,57 @@ mod tests {
     }
 
     #[test]
+    fn empty_crlf_and_no_trailing_newline_inputs() {
+        let empty = doc("");
+        assert!(empty.blocks.is_empty());
+
+        let crlf = doc("# Plan\r\n\r\nHello world.\r\n");
+        assert!(matches!(crlf.blocks[0].kind, BlockKind::Heading(1)));
+        assert!(crlf.blocks[1].text().contains("Hello world."));
+        assert!(!crlf.blocks[1].text().contains('\r'));
+
+        let no_newline = doc("# Plan\n\nLast line");
+        assert_eq!(no_newline.blocks.last().unwrap().text(), "Last line");
+        assert_eq!(no_newline.source_line(3), Some("Last line"));
+    }
+
+    #[test]
+    fn parses_task_rules_footnotes_and_nested_lists() {
+        let source = "# Fixture\n\n- [x] done\n  - [ ] nested\n\n---\n\nA note.[^1]\n\n[^1]: Footnote text.\n";
+        let d = doc(source);
+        assert!(d.blocks.iter().any(|block| {
+            matches!(block.kind, BlockKind::ListItem { .. })
+                && block.text().contains("[x]")
+                && block
+                    .inlines
+                    .iter()
+                    .any(|inline| inline.style == InlineStyle::TaskMarker)
+        }));
+        assert!(
+            d.blocks
+                .iter()
+                .any(|block| matches!(block.kind, BlockKind::Rule))
+        );
+        assert!(
+            d.blocks
+                .iter()
+                .any(|block| matches!(block.kind, BlockKind::Footnote))
+        );
+        let nested = d
+            .blocks
+            .iter()
+            .find(|block| block.text().contains("nested"))
+            .expect("nested item");
+        assert!(nested.depth >= 1, "{nested:?}");
+        for block in &d.blocks {
+            assert!(
+                block.source.end <= d.source.len(),
+                "block range past EOF: {block:?}"
+            );
+        }
+    }
+
+    #[test]
     fn block_at_uses_the_preceding_block_in_gaps_and_at_eof() {
         let source = "# A\n\none\n\n## B\n\n two\n";
         let d = doc(source);

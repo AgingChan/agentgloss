@@ -10,7 +10,7 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
 MVP implemented and tested:
 
-- 61 library tests, 15 CLI integration tests, 25 TUI integration tests, 1 performance test
+- 82 library tests, 15 CLI integration tests, 30 TUI integration tests, 1 performance test (128 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
@@ -106,6 +106,8 @@ mdreview install gemini    # GEMINI.md marker block
 mdreview install generic   # mdreview-agent.md
 ```
 
+Codex and Gemini installs update only the marker block and preserve the rest of `AGENTS.md`/`GEMINI.md`. Claude and generic installs replace their dedicated recipe files. Re-running any install is idempotent.
+
 ## Keys
 
 Vim mode is the default. `F2` switches between Vim and standard input.
@@ -116,11 +118,12 @@ Vim mode is the default. `F2` switches between Vim and standard input.
 | Half page | `Ctrl-d`/`Ctrl-u` | PgUp/PgDn |
 | Top/bottom | `gg`/`G` | Home/End |
 | Headings | `]]`/`[[` | `Ctrl-]`/`Ctrl-[` |
-| Paragraphs | `}`/`{` | `Ctrl-Down`/`Ctrl-Up` |
+| Blocks | `}`/`{` | `Ctrl-Down`/`Ctrl-Up` |
 | Select | `v`, `V`, `P` | Shift+arrows, Shift+Home/End, `Ctrl-p` |
 | Comment / suggestion | `c` / `s` | `c` / `s` |
 | Search | `/`, `n`/`N` | `Ctrl-f`, `n`/`N` |
 | Resolve / reopen / edit | `x` / `X` / `e` | `x` / `X` / `e` |
+| Reattach stale item | `r` | `r` |
 | Delete item | `d` | Delete |
 | Sign off | `Ctrl+Enter` | `Ctrl+Enter` |
 | Toggle view | `F3` | `F3` |
@@ -204,6 +207,7 @@ tmp=$(mktemp -d)
 cp tests/fixtures/spec.md tests/fixtures/red.png "$tmp"/
 tmux new-session -d -s mdreview -x 100 -y 30 \
   "cd $tmp && /path/to/mdreview review spec.md"
+sleep 2
 tmux send-keys -t mdreview q
 ```
 
@@ -212,7 +216,7 @@ tmux send-keys -t mdreview q
 - The name collides with the existing Python `mdreview`.
 - Media cache is in-memory; disk caching and an LRU bound are deferred.
 - `mermaid-rs-renderer` is pre-1.0; use `mmdc` for official fidelity.
-- Remote images, ACP/MCP, CI gating, comment threads, and full Vim emulation are out of scope.
+- Remote image fetching, ACP/MCP, CI gating, comment threads, and full Vim emulation are out of scope; remote URLs render as link-styled text.
 - `loop.sh`, `plan.sh`, and `qa.sh` require a `claude` CLI on PATH. `init.sh`, `gate.sh`, and `report.sh` do not.
 
 ## License

@@ -1,7 +1,7 @@
 # mdreview — Terminal Spec Reviewer Design
 
 - **Date:** 2026-11-20 (updated 2026-11-21)
-- **Status:** MVP implemented; 102 automated tests passing; final QA pass in progress
+- **Status:** MVP implemented; 128 automated tests passing; final release QA pass in progress
 - **Working name:** `mdreview` (collides with an existing Python/Textual tool named mdreview; final name to be decided)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 
@@ -119,13 +119,14 @@ Re-anchoring tries exact quote matches (scored by context and distance), then wh
 
 ## 10. Media
 
-- Images resolve relative to the document; absolute local paths are allowed. Remote URLs are rejected.
+- Images resolve relative to the document; absolute local paths are allowed. Remote URLs are not fetched and render as link-styled text.
 - PNG/JPEG/WebP/BMP and first-frame GIF decode with `image`; SVG and Mermaid rasterize with `usvg`/`resvg` using system fonts.
 - Limits: 50 MB, 10,000 px per side, 40 MP.
 - Protocol selection is environment-based, not an interactive stdio query: Kitty (`KITTY_WINDOW_ID`, Ghostty), iTerm2 (WezTerm/iTerm2), Sixel (`WT_SESSION`, foot/mlterm), otherwise half-blocks. An explicit `--protocol` overrides detection.
   - The stdio query was rejected after PTY testing showed its reader thread stealing keyboard input.
 - Mermaid: Rust renderer by default; `mmdc` when explicitly selected or when the Rust parser fails and `mmdc` is installed; source fallback otherwise.
 - Encoded media is cached in memory by content/engine/theme/protocol/target size. Disk caching is deferred; first paint is asynchronous and shows the placeholder.
+- Pixel scaling derives the terminal cell size from `TIOCGWINSZ` when the terminal reports plausible pixel metrics, falling back to 10x20. No interactive stdio query is used.
 - tmux 3.2a can display half-blocks and Kitty placeholders with passthrough; it cannot use Sixel. Terax (xterm.js) uses half-blocks.
 
 ## 11. Agent integration and harness
@@ -146,7 +147,7 @@ The build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host buil
 
 ## 12. Validation
 
-- 61 library tests, 15 CLI integration tests, 25 TUI integration tests, and 1 performance test pass; `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
+- 82 library tests, 15 CLI integration tests, 30 TUI integration tests, and 1 performance test pass (128 total); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
 - Additional coverage includes tmux feedback/abort exit codes, custom sidecars, export locking, stale approval status, reattachment, narrow-terminal overlays, mouse hit-testing, content-addressed media caching, grapheme-safe wrapping, and a 2,000-line performance test.
 - PTY smoke test: a real tmux pane rendered the document, Mermaid, and image placeholder, accepted `q`, restored the terminal, and exited with code 1 (aborted).
 - Fake-tmux integration test verifies popup and detached command construction.

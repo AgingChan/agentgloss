@@ -355,8 +355,16 @@ impl App {
     }
 
     pub fn set_viewport(&mut self, height: usize) {
-        self.viewport_height = height.max(1);
-        self.ensure_cursor_visible(self.viewport_height);
+        let height = height.max(1);
+        let changed = height != self.viewport_height;
+        self.viewport_height = height;
+        if changed {
+            self.ensure_cursor_visible(self.viewport_height);
+        }
+    }
+
+    pub fn is_confirming(&self) -> bool {
+        self.confirm.is_some()
     }
 
     /// Ensure media for visible blocks is decoded and encoded before drawing.
@@ -374,21 +382,36 @@ impl App {
                 continue;
             }
             let block = self.lines[index].block;
-            let group_start = index;
-            let mut group_end = index;
-            while group_end < end
-                && self.lines[group_end].is_media()
-                && self.lines[group_end].block == block
+            let mut full_start = index;
+            while full_start > 0
+                && self.lines[full_start - 1].is_media()
+                && self.lines[full_start - 1].block == block
             {
-                group_end += 1;
+                full_start -= 1;
             }
-            let target = (area.width, (group_end - group_start).max(1) as u16);
+            let mut full_end = index;
+            while full_end < self.lines.len()
+                && self.lines[full_end].is_media()
+                && self.lines[full_end].block == block
+            {
+                full_end += 1;
+            }
+            let mut visible_end = index;
+            while visible_end < end
+                && self.lines[visible_end].is_media()
+                && self.lines[visible_end].block == block
+            {
+                visible_end += 1;
+            }
+            let target = (area.width, (full_end - full_start).max(1) as u16);
             let key = match self.document.blocks.get(block).map(|b| b.kind.clone()) {
-                Some(BlockKind::Image { src, .. }) => {
+                Some(BlockKind::Image { src, .. }) if !is_remote_image(&src) => {
                     Some(self.media.ensure_image(&self.document.path, &src, target))
                 }
                 Some(BlockKind::Mermaid { source }) => {
-                    if self.mermaid_source.contains(&block) {
+                    if self.mermaid_source.contains(&block)
+                        || self.options.mermaid_engine == MermaidEngine::Source
+                    {
                         None
                     } else {
                         Some(self.media.ensure_mermaid(&source, target))
@@ -404,7 +427,7 @@ impl App {
                 }
                 self.media_keys.insert(block, key);
             }
-            index = group_end;
+            index = visible_end;
         }
     }
 
@@ -549,12 +572,17 @@ impl App {
         let current = self
             .outline
             .iter()
-            .rposition(|item| item.block <= current_block)
-            .unwrap_or(0);
+            .rposition(|item| item.block <= current_block);
         let target = if forward {
-            (current + 1).min(self.outline.len() - 1)
+            current.map_or(0, |index| (index + 1).min(self.outline.len() - 1))
+        } else if let Some(index) = current {
+            if self.outline[index].block == current_block {
+                index.saturating_sub(1)
+            } else {
+                index
+            }
         } else {
-            current.saturating_sub(1)
+            0
         };
         self.jump_to_block(self.outline[target].block);
         self.outline_cursor = target;
@@ -955,10 +983,11 @@ impl App {
             return;
         }
         if key.code == KeyCode::Esc {
-            if self.selection.take().is_some() {
-                self.status = "Selection cleared".to_string();
-            } else {
+            if self.focus != Focus::Document {
                 self.focus = Focus::Document;
+                self.status = "Document focus".to_string();
+            } else if self.selection.take().is_some() {
+                self.status = "Selection cleared".to_string();
             }
             return;
         }
@@ -1367,6 +1396,7 @@ impl App {
                 if let Some(area) = layout.outline
                     && contains(area, x, y)
                 {
+                    self.focus = Focus::Outline;
                     let index = (y.saturating_sub(area.y) as usize) + layout.outline_scroll;
                     if index < self.outline.len() {
                         self.outline_cursor = index;
@@ -1377,6 +1407,7 @@ impl App {
                 if let Some(area) = layout.review
                     && contains(area, x, y)
                 {
+                    self.focus = Focus::Review;
                     let index = (y.saturating_sub(area.y) as usize) + layout.review_scroll;
                     if index < self.store.items.len() {
                         self.review_cursor = index;
@@ -1388,6 +1419,7 @@ impl App {
                     return;
                 }
                 if contains(layout.doc, x, y) {
+                    self.focus = Focus::Document;
                     let index = (self.scroll + (y.saturating_sub(layout.doc.y) as usize))
                         .min(self.lines.len().saturating_sub(1));
                     if x < layout.doc.x.saturating_add(2)
@@ -1645,6 +1677,11 @@ fn contains(rect: Rect, x: u16, y: u16) -> bool {
         && y < rect.y.saturating_add(rect.height)
 }
 
+fn is_remote_image(src: &str) -> bool {
+    let lower = src.to_ascii_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
 fn file_meta(path: &std::path::Path) -> Option<(SystemTime, u64)> {
     let metadata = std::fs::metadata(path).ok()?;
     Some((metadata.modified().ok()?, metadata.len()))
@@ -1802,6 +1839,17 @@ mod tests {
         app.handle_key(key(KeyCode::Char(']')));
         app.handle_key(key(KeyCode::Char(']')));
         assert_eq!(app.current_block().unwrap().index, 2);
+    }
+
+    #[test]
+    fn heading_motion_from_before_the_first_heading_lands_on_it() {
+        let (mut app, _dir) = fixture("intro\n\n# A\n\none\n\n# B\n\ntwo\n");
+        app.set_cursor(0);
+        app.next_heading(true);
+        assert_eq!(app.current_block().unwrap().index, 1);
+        app.set_cursor(0);
+        app.next_heading(false);
+        assert_eq!(app.current_block().unwrap().index, 1);
     }
 
     #[test]

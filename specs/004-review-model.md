@@ -67,9 +67,9 @@ On load, if the current document hash differs from the item anchor hash, re-anch
 2. **Exact quote, multiple:** score candidates by prefix/suffix equality, then by distance from the old byte offset; choose the best.
 3. **Whitespace-normalized quote:** collapse runs of whitespace and search; map back to original byte offsets.
 4. **Heading + block fallback:** if the old heading path still exists and the candidate block's token Jaccard similarity to the quote is at least 0.5, anchor to that block's range.
-5. **Not found:** mark `stale`, keep the old anchor and body, and add a history event.
+5. **Not found:** mark `stale`, keep the old anchor and body, and add a history event. If a later revision makes the quote findable again, re-anchoring reopens the item automatically; manual reattach handles anchors that no longer match.
 
-Resolved items are never re-anchored. Every re-anchor appends a history event with round, method, and old/new offsets. A suggestion becomes `stale` if its `original` text no longer matches the re-anchored text.
+Resolved items are never re-anchored. Every successful re-anchor appends a history event with round, method, and old/new offsets. An already-stale item does not repeat a stale event on every pass; re-anchoring or reattaching it records a new event. A suggestion becomes `stale` if its `original` text no longer matches the re-anchored text.
 
 ## Rounds and signoff
 

@@ -2,7 +2,7 @@
 
 use crate::agent;
 use crate::config::{Config, Keys, Protocol, Theme};
-use crate::document::{Document, content_hash};
+use crate::document::Document;
 use crate::review::export::{export_exit_code, export_json, export_prompt, status_label};
 use crate::review::{ReviewStore, StoreLock, sidecar_path};
 use crate::tui::{self, TuiOptions};
@@ -155,12 +155,14 @@ fn dispatch(cli: Cli) -> anyhow::Result<i32> {
         }
         Command::Tui(args) => {
             let code = run_review(&args, true)?;
-            Ok(match code {
+            let tui_code = match code {
                 EXIT_OK => EXIT_TUI_APPROVED,
                 EXIT_FEEDBACK => EXIT_TUI_FEEDBACK,
                 EXIT_ABORTED => EXIT_TUI_ABORTED,
                 other => other,
-            })
+            };
+            persist_tui_result(tui_code);
+            Ok(tui_code)
         }
         Command::Request { file, sidecar } => run_request(&file, sidecar.as_ref()),
         Command::Wait(args) => run_wait(&args),
@@ -168,6 +170,12 @@ fn dispatch(cli: Cli) -> anyhow::Result<i32> {
         Command::Status(args) => run_status(&args),
         Command::Resolve { file, ids, sidecar } => run_resolve(&file, &ids, sidecar.as_ref()),
         Command::Install(args) => run_install(&args),
+    }
+}
+
+fn persist_tui_result(code: i32) {
+    if let Some(path) = std::env::var_os("MDREVIEW_RESULT_FILE") {
+        let _ = std::fs::write(path, format!("{code}\n"));
     }
 }
 
@@ -261,13 +269,12 @@ fn run_request(file: &PathBuf, sidecar_override: Option<&PathBuf>) -> anyhow::Re
     store.save(&sidecar)?;
     println!("Review requested for {}", file.display());
     let sidecar_flag = sidecar_override
-        .map(|path| format!(" --sidecar {}", path.display()))
+        .map(|path| format!(" --sidecar {}", agent::display_path(path)))
         .unwrap_or_default();
-    println!("Human: mdreview review {}{sidecar_flag}", file.display());
+    let file_display = agent::display_path(file);
+    println!("Human: mdreview review {file_display}{sidecar_flag}");
     println!(
-        "Agent: mdreview export {}{sidecar_flag}   (or mdreview wait {}{sidecar_flag})",
-        file.display(),
-        file.display()
+        "Agent: mdreview export {file_display}{sidecar_flag}   (or mdreview wait {file_display}{sidecar_flag})"
     );
     Ok(EXIT_OK)
 }
@@ -416,10 +423,4 @@ fn run_install(args: &InstallArgs) -> anyhow::Result<i32> {
         println!("Wrote {}", path.display());
     }
     Ok(EXIT_OK)
-}
-
-/// Compute the current hash for a path without retaining the parsed document.
-pub fn hash_file(path: &Path) -> anyhow::Result<String> {
-    let source = std::fs::read_to_string(path)?;
-    Ok(content_hash(&source))
 }

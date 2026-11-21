@@ -53,12 +53,20 @@ pub fn export_prompt(store: &ReviewStore, include_resolved: bool) -> String {
         out.push('\n');
     }
 
-    if items.is_empty() {
-        if store.is_approved() {
-            out.push_str("The reviewer approved this revision. No changes are required.\n");
-        } else {
-            out.push_str("No open review items.\n");
+    if store.is_approved() {
+        out.push_str("The reviewer approved this revision. No changes are required.\n");
+        if items.is_empty() {
+            return out;
         }
+        out.push_str("\nResolved items (archived):\n\n");
+        for (number, item) in items.iter().enumerate() {
+            push_item(&mut out, number + 1, item);
+        }
+        return out;
+    }
+
+    if items.is_empty() {
+        out.push_str("No open review items.\n");
         return out;
     }
 
@@ -68,7 +76,7 @@ pub fn export_prompt(store: &ReviewStore, include_resolved: bool) -> String {
     out.push_str("After editing, mark fixed items resolved:\n");
     out.push_str(&format!(
         "  mdreview resolve {} {}\n\n",
-        store.file,
+        quote_command_path(&store.file),
         items
             .iter()
             .map(|item| item.id.as_str())
@@ -77,55 +85,64 @@ pub fn export_prompt(store: &ReviewStore, include_resolved: bool) -> String {
     ));
 
     for (number, item) in items.iter().enumerate() {
+        push_item(&mut out, number + 1, item);
+    }
+    out
+}
+
+fn push_item(out: &mut String, number: usize, item: &super::ReviewItem) {
+    let line_end = item
+        .anchor
+        .line_end
+        .saturating_sub(1)
+        .max(item.anchor.line_start);
+    out.push_str(&format!(
+        "## {}. [{}] {} — {} — lines {}-{}\n",
+        number,
+        item.id,
+        item.kind.label(),
+        item.status.label(),
+        item.anchor.line_start,
+        line_end
+    ));
+    if !item.anchor.heading_path.is_empty() {
         out.push_str(&format!(
-            "## {}. [{}] {} — {} — lines {}-{}\n",
-            number + 1,
-            item.id,
-            item.kind.label(),
-            item.status.label(),
-            item.anchor.line_start,
-            item.anchor.line_end
+            "Heading: {}\n",
+            item.anchor.heading_path.join(" > ")
         ));
-        if !item.anchor.heading_path.is_empty() {
-            out.push_str(&format!(
-                "Heading: {}\n",
-                item.anchor.heading_path.join(" > ")
-            ));
+    }
+    match item.kind {
+        ItemKind::Comment => {
+            out.push_str("Quote:\n");
+            push_quote(out, &item.anchor.quote);
+            out.push_str("Comment:\n");
+            out.push_str(&item.body);
+            out.push('\n');
         }
-        match item.kind {
-            ItemKind::Comment => {
-                out.push_str("Quote:\n");
-                push_quote(&mut out, &item.anchor.quote);
+        ItemKind::Suggestion => {
+            if let Some(suggestion) = &item.suggestion {
+                out.push_str("Original:\n");
+                out.push_str(&suggestion.original);
+                if !suggestion.original.ends_with('\n') {
+                    out.push('\n');
+                }
+                out.push_str("Replacement:\n");
+                out.push_str(&suggestion.replacement);
+                if !suggestion.replacement.ends_with('\n') {
+                    out.push('\n');
+                }
+            }
+            if !item.body.is_empty() {
                 out.push_str("Comment:\n");
                 out.push_str(&item.body);
                 out.push('\n');
             }
-            ItemKind::Suggestion => {
-                if let Some(suggestion) = &item.suggestion {
-                    out.push_str("Original:\n");
-                    out.push_str(&suggestion.original);
-                    if !suggestion.original.ends_with('\n') {
-                        out.push('\n');
-                    }
-                    out.push_str("Replacement:\n");
-                    out.push_str(&suggestion.replacement);
-                    if !suggestion.replacement.ends_with('\n') {
-                        out.push('\n');
-                    }
-                }
-                if !item.body.is_empty() {
-                    out.push_str("Comment:\n");
-                    out.push_str(&item.body);
-                    out.push('\n');
-                }
-            }
         }
-        out.push_str(&format!(
-            "Anchor: bytes {}-{}\n\n",
-            item.anchor.source_start, item.anchor.source_end
-        ));
     }
-    out
+    out.push_str(&format!(
+        "Anchor: bytes {}-{}\n\n",
+        item.anchor.source_start, item.anchor.source_end
+    ));
 }
 
 fn push_quote(out: &mut String, text: &str) {
@@ -137,6 +154,17 @@ fn push_quote(out: &mut String, text: &str) {
             out.push_str(line);
             out.push('\n');
         }
+    }
+}
+
+fn quote_command_path(text: &str) -> String {
+    if text
+        .chars()
+        .any(|ch| ch.is_whitespace() || "'\"\\$`&;|<>()*?[]{}!#".contains(ch))
+    {
+        format!("'{}'", text.replace('\'', "'\\''"))
+    } else {
+        text.to_string()
     }
 }
 
@@ -212,7 +240,7 @@ Please clarify this.\n\
 Anchor: bytes {}-{}\n\n",
             store.doc_hash,
             anchor.line_start,
-            anchor.line_end,
+            anchor.line_end.saturating_sub(1).max(anchor.line_start),
             anchor.source_start,
             anchor.source_end
         );
@@ -231,6 +259,19 @@ Anchor: bytes {}-{}\n\n",
         );
         assert_eq!(prompt, expected);
         assert_eq!(export_exit_code(&store, false), 0);
+    }
+
+    #[test]
+    fn approved_all_lists_archived_items_without_action_instructions() {
+        let (mut store, _document, id) = fixture();
+        store.resolve(&id).unwrap();
+        store.approve();
+        let prompt = export_prompt(&store, true);
+        assert!(prompt.contains("The reviewer approved this revision."));
+        assert!(prompt.contains("Resolved items (archived):"));
+        assert!(prompt.contains(&format!("[{id}] comment — resolved")));
+        assert!(!prompt.contains("Address the items below"));
+        assert!(!prompt.contains("mdreview resolve"));
     }
 
     #[test]
@@ -255,6 +296,70 @@ Anchor: bytes {}-{}\n\n",
             1
         );
         assert_eq!(export_exit_code(&store, false), 0);
+    }
+
+    #[test]
+    fn resolve_command_quotes_special_paths() {
+        let (mut store, _document, _id) = fixture();
+        store.file = "spec file #1.md".to_string();
+        let prompt = export_prompt(&store, false);
+        assert!(prompt.contains("mdreview resolve 'spec file #1.md' c1"));
+    }
+
+    #[test]
+    fn quotes_preserve_blank_lines_and_bodies_stay_verbatim() {
+        let source = "# A\n\nFirst line\n\nSecond line\n";
+        let document = Document::from_source("spec.md", source.to_string());
+        let start = source.find("First line").unwrap();
+        let end = source.find("Second line").unwrap() + "Second line".len();
+        let anchor = Anchor::from_range(&document, start..end).unwrap();
+        let mut store = ReviewStore::new("spec.md", document.hash.clone());
+        store.add_comment(anchor, "Keep this:\n```rust\nfn main() {}\n```\n");
+        let prompt = export_prompt(&store, false);
+        assert!(prompt.contains("> First line\n>\n> Second line\n"));
+        assert!(prompt.contains("Keep this:\n```rust\nfn main() {}\n```\n"));
+    }
+
+    #[test]
+    fn numbering_follows_anchor_order_not_insertion_order() {
+        let source = "# A\n\nFirst paragraph.\n\nSecond paragraph.\n";
+        let document = Document::from_source("spec.md", source.to_string());
+        let mut store = ReviewStore::new("spec.md", document.hash.clone());
+        let second = source.find("Second paragraph.").unwrap();
+        let first = source.find("First paragraph.").unwrap();
+        let second_id = store.add_comment(
+            Anchor::from_range(&document, second..second + "Second paragraph.".len()).unwrap(),
+            "second",
+        );
+        let first_id = store.add_comment(
+            Anchor::from_range(&document, first..first + "First paragraph.".len()).unwrap(),
+            "first",
+        );
+        let prompt = export_prompt(&store, false);
+        assert!(prompt.contains(&format!("## 1. [{first_id}]")));
+        assert!(prompt.contains(&format!("## 2. [{second_id}]")));
+    }
+
+    #[test]
+    fn empty_and_stale_only_exports_are_clear() {
+        let document = Document::from_source("spec.md", "# A\n\nHello.\n".to_string());
+        let empty = ReviewStore::new("spec.md", document.hash.clone());
+        let prompt = export_prompt(&empty, false);
+        assert!(prompt.contains("Open items: 0"));
+        assert!(prompt.contains("No open review items."));
+        assert_eq!(export_exit_code(&empty, false), 0);
+
+        let start = document.source.find("Hello.").unwrap();
+        let anchor = Anchor::from_range(&document, start..start + "Hello.".len()).unwrap();
+        let mut stale = ReviewStore::new("spec.md", document.hash.clone());
+        stale.add_comment(anchor, "note");
+        let changed = Document::from_source("spec.md", "# A\n\nDifferent.\n".to_string());
+        stale.reanchor(&changed);
+        let prompt = export_prompt(&stale, false);
+        assert!(prompt.contains("- Open items: 0"));
+        assert!(prompt.contains("- Stale items: 1"));
+        assert!(prompt.contains("comment — stale"));
+        assert_eq!(export_exit_code(&stale, false), 10);
     }
 
     #[test]

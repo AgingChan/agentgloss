@@ -55,7 +55,7 @@ CLI flags override config. Unknown keys warn, never crash. No network.
 - `request`: create the sidecar if needed, stamp `requested_at`, print the exact command the human should run and the export command for the agent. Exit 0.
 - `wait`: poll until signoff or timeout. A signoff is valid only when its document hash matches the current file. Feedbacks exit 10; approval exits 0; timeout exits 3.
 - `export`: print the prompt or JSON. Exit 10 if open or stale items exist, otherwise 0. `--all` includes resolved items.
-- `status`: human summary or JSON with round, counts, approval, requested timestamp.
+- `status`: human summary or JSON with round, counts, approval, requested timestamp. Human/JSON status also reports `changed` when the document hash differs from the sidecar and `invalidated` when a stored approval no longer matches.
 - `resolve`: validate IDs, mark resolved with the current round, save. Unknown IDs exit 2.
 - `install`: see spec 008.
 

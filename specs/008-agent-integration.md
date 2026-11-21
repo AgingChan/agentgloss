@@ -44,7 +44,7 @@ The core contract is file-based and works with every agent:
 - **gemini**: the same marker block in `GEMINI.md`.
 - **generic**: `mdreview-agent.md` with the same instructions.
 
-All writes create parent directories, preserve existing content, and are idempotent (re-running does not duplicate blocks). The command prints the files written.
+All writes create parent directories and are idempotent. Marker-block installs (`AGENTS.md`, `GEMINI.md`) preserve content outside the marker block; the dedicated Claude command file and generic recipe file are replaced. The command prints the files written.
 
 ## Tests
 

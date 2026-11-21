@@ -51,12 +51,14 @@ Approved output:
 The reviewer approved this revision. No changes are required.
 ```
 
+Status is `feedback` when items need action, `approved` when the current hash is approved, and `pending` when no signoff exists.
+
 Rules:
 - Items are ordered by `anchor.source_start`, then ID.
 - Numbering is sequential and independent of the stable ID.
 - Quote lines are prefixed with `> `; blank lines inside quotes become `>`.
 - Bodies and suggestions are printed verbatim, with no Markdown escaping.
-- `--all` includes resolved items, clearly labelled.
+- `--all` includes resolved items, clearly labelled. If the revision is approved, archived items are listed under `Resolved items (archived):` without action instructions.
 - Text never exceeds one blank line between sections.
 
 ## JSON export

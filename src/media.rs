@@ -5,6 +5,7 @@ use crate::tui::TuiOptions;
 use anyhow::Context;
 use image::{DynamicImage, ImageFormat};
 use ratatui::layout::Size;
+use ratatui_image::FontSize;
 use ratatui_image::Resize;
 use ratatui_image::picker::{Picker, ProtocolType};
 use ratatui_image::protocol::Protocol;
@@ -71,9 +72,7 @@ impl MediaManager {
             ProtocolChoice::Halfblocks => Some(ProtocolType::Halfblocks),
         };
         let protocol = forced.unwrap_or_else(detect_protocol);
-        let mut picker = Picker::halfblocks();
-        picker.set_protocol_type(protocol);
-        self.picker = picker;
+        self.picker = picker_for(protocol);
     }
 
     pub fn protocol_name(&self) -> String {
@@ -144,9 +143,12 @@ impl MediaManager {
         let src = src.to_string();
         let job_key = key.clone();
         thread::spawn(move || {
-            let result = load_image(&picker, &document_path, &src, target)
-                .and_then(|image| encode(&picker, image, target))
-                .map_err(|error| format!("{error:#}"));
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                load_image(&picker, &document_path, &src, target)
+                    .and_then(|image| encode(&picker, image, target))
+                    .map_err(|error| format!("{error:#}"))
+            }))
+            .unwrap_or_else(|_| Err("media worker panicked".to_string()));
             let _ = tx.send(MediaResult {
                 key: job_key,
                 result,
@@ -179,9 +181,12 @@ impl MediaManager {
         let theme = self.theme;
         let job_key = key.clone();
         thread::spawn(move || {
-            let result = load_mermaid(&picker, engine, theme, &source, target)
-                .and_then(|image| encode(&picker, image, target))
-                .map_err(|error| format!("{error:#}"));
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                load_mermaid(&picker, engine, theme, &source, target)
+                    .and_then(|image| encode(&picker, image, target))
+                    .map_err(|error| format!("{error:#}"))
+            }))
+            .unwrap_or_else(|_| Err("media worker panicked".to_string()));
             let _ = tx.send(MediaResult {
                 key: job_key,
                 result,
@@ -209,6 +214,9 @@ impl MediaManager {
             return "missing".to_string();
         };
         let size = metadata.len();
+        if size > MAX_FILE_BYTES {
+            return format!("oversize:{size}");
+        }
         if let Some((cached_modified, cached_size, cached_hash)) = self.hash_cache.get(&path)
             && *cached_modified == modified
             && *cached_size == size
@@ -257,8 +265,14 @@ fn load_image(
         let svg = std::fs::read_to_string(&path)?;
         rasterize_svg(picker, &svg, target)
     } else {
-        let image = image::ImageReader::open(&path)
-            .with_context(|| format!("cannot open {}", path.display()))?
+        let mut reader = image::ImageReader::open(&path)
+            .with_context(|| format!("cannot open {}", path.display()))?;
+        let mut limits = image::Limits::default();
+        limits.max_image_width = Some(MAX_DIMENSION);
+        limits.max_image_height = Some(MAX_DIMENSION);
+        limits.max_alloc = Some(MAX_PIXELS * 4 + 64 * 1024 * 1024);
+        reader.limits(limits);
+        let image = reader
             .decode()
             .with_context(|| format!("cannot decode {}", path.display()))?;
         check_dimensions(&image)?;
@@ -273,31 +287,34 @@ fn load_mermaid(
     source: &str,
     target: (u16, u16),
 ) -> anyhow::Result<DynamicImage> {
-    let svg = match engine {
-        MermaidEngine::Source => anyhow::bail!("Mermaid rendering is disabled"),
-        MermaidEngine::Rust => mermaid_rs_renderer::render(source)
-            .map_err(|error| anyhow::anyhow!("Mermaid parse error: {error}"))?,
-        MermaidEngine::Mmdc => render_with_mmdc(theme, source)?,
-        MermaidEngine::Auto => match mermaid_rs_renderer::render(source) {
-            Ok(svg) => svg,
-            Err(rust_error) => {
-                if command_exists("mmdc") {
-                    render_with_mmdc(theme, source)
-                        .with_context(|| format!("Rust Mermaid renderer failed: {rust_error}"))?
-                } else {
-                    anyhow::bail!("Mermaid parse error: {rust_error}");
-                }
-            }
-        },
-    };
+    let mmdc = command_exists("mmdc").then(|| std::ffi::OsStr::new("mmdc"));
+    let svg = render_mermaid_svg(engine, theme, source, mmdc)?;
     rasterize_svg(picker, &svg, target)
 }
 
-fn render_with_mmdc(theme: Theme, source: &str) -> anyhow::Result<String> {
-    if !command_exists("mmdc") {
-        anyhow::bail!("mmdc is not installed");
+fn render_mermaid_svg(
+    engine: MermaidEngine,
+    theme: Theme,
+    source: &str,
+    mmdc: Option<&std::ffi::OsStr>,
+) -> anyhow::Result<String> {
+    match engine {
+        MermaidEngine::Source => anyhow::bail!("Mermaid rendering is disabled"),
+        MermaidEngine::Rust => mermaid_rs_renderer::render(source)
+            .map_err(|error| anyhow::anyhow!("Mermaid parse error: {error}")),
+        MermaidEngine::Mmdc => match mmdc {
+            Some(program) => render_with_mmdc_program(program, theme, source),
+            None => anyhow::bail!("mmdc is not installed"),
+        },
+        MermaidEngine::Auto => match mermaid_rs_renderer::render(source) {
+            Ok(svg) => Ok(svg),
+            Err(rust_error) => match mmdc {
+                Some(program) => render_with_mmdc_program(program, theme, source)
+                    .with_context(|| format!("Rust Mermaid renderer failed: {rust_error}")),
+                None => anyhow::bail!("Mermaid parse error: {rust_error}"),
+            },
+        },
     }
-    render_with_mmdc_program(std::ffi::OsStr::new("mmdc"), theme, source)
 }
 
 fn render_with_mmdc_program(
@@ -398,6 +415,36 @@ fn font_database() -> Arc<fontdb::Database> {
             Arc::new(database)
         })
         .clone()
+}
+
+fn picker_for(protocol: ProtocolType) -> Picker {
+    let font = terminal_font_size().unwrap_or_else(|| FontSize::new(10, 20));
+    #[allow(deprecated)]
+    let mut picker = Picker::from_fontsize(font);
+    picker.set_protocol_type(protocol);
+    picker
+}
+
+fn terminal_font_size() -> Option<FontSize> {
+    let size = crossterm::terminal::window_size().ok()?;
+    font_size_from_pixels(size.columns, size.rows, size.width, size.height)
+}
+
+/// Derive a cell's pixel size from `TIOCGWINSZ` metrics. Many terminals leave
+/// the pixel fields zero or report bogus values; implausible results fall back
+/// to the 10x20 default rather than distorting every image.
+fn font_size_from_pixels(
+    columns: u16,
+    rows: u16,
+    width_px: u16,
+    height_px: u16,
+) -> Option<FontSize> {
+    if columns == 0 || rows == 0 || width_px == 0 || height_px == 0 {
+        return None;
+    }
+    let width = width_px / columns;
+    let height = height_px / rows;
+    ((4..=64).contains(&width) && (6..=128).contains(&height)).then(|| FontSize::new(width, height))
 }
 
 fn detect_protocol() -> ProtocolType {
@@ -521,6 +568,19 @@ mod tests {
         media.wait_for(key, Duration::from_secs(10))
     }
 
+    #[cfg(unix)]
+    fn fake_mmdc(dir: &Path) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let script = dir.join("mmdc");
+        std::fs::write(
+            &script,
+            "#!/bin/sh\nout=''\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = \"-o\" ]; then shift; out=\"$1\"; fi\n  shift\ndone\nprintf '%s' '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\"/></svg>' > \"$out\"\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        script
+    }
+
     #[test]
     fn resolves_and_encodes_local_png() {
         let dir = tempfile::tempdir().unwrap();
@@ -598,19 +658,87 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn fake_mmdc_program_returns_svg() {
-        use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
-        let script = dir.path().join("mmdc");
-        std::fs::write(
-            &script,
-            "#!/bin/sh\nout=''\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = \"-o\" ]; then shift; out=\"$1\"; fi\n  shift\ndone\nprintf '%s' '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\"/></svg>' > \"$out\"\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let script = fake_mmdc(dir.path());
         let svg =
             render_with_mmdc_program(script.as_os_str(), Theme::Dark, "flowchart LR\nA-->B\n")
                 .unwrap();
         assert!(svg.contains("<svg"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn auto_engine_falls_back_to_mmdc_when_the_rust_parser_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = fake_mmdc(dir.path());
+        let svg = render_mermaid_svg(
+            MermaidEngine::Auto,
+            Theme::Dark,
+            "not a diagram\n",
+            Some(script.as_os_str()),
+        )
+        .unwrap();
+        assert!(svg.contains("<svg"));
+        assert!(
+            render_mermaid_svg(MermaidEngine::Auto, Theme::Dark, "not a diagram\n", None).is_err()
+        );
+    }
+
+    #[test]
+    fn decodes_webp_and_preserves_pixel_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let doc = dir.path().join("spec.md");
+        let path = dir.path().join("blue.webp");
+        let image = image::RgbImage::from_pixel(3, 2, image::Rgb([0, 0, 255]));
+        image.save_with_format(&path, ImageFormat::WebP).unwrap();
+        let mut media = MediaManager::new(&options(dir.path()));
+        let key = media.ensure_image(&doc, "blue.webp", (20, 10));
+        assert!(wait(&mut media, &key), "{:?}", media.error(&key));
+        assert!(media.get(&key).is_some());
+
+        let loaded = load_image(&media.picker, &doc, "blue.webp", (20, 10)).unwrap();
+        assert_eq!((loaded.width(), loaded.height()), (3, 2));
+        assert_eq!(loaded.to_rgba8().get_pixel(0, 0).0, [0, 0, 255, 255]);
+    }
+
+    #[test]
+    fn enforces_file_and_pixel_limits() {
+        let dir = tempfile::tempdir().unwrap();
+        let doc = dir.path().join("spec.md");
+        let big = dir.path().join("big.png");
+        std::fs::File::create(&big)
+            .unwrap()
+            .set_len(MAX_FILE_BYTES + 1)
+            .unwrap();
+        let mut media = MediaManager::new(&options(dir.path()));
+        let stamp = media.image_stamp(&doc, "big.png");
+        assert!(stamp.starts_with("oversize:"), "{stamp}");
+        let key = media.ensure_image(&doc, "big.png", (20, 10));
+        assert!(wait(&mut media, &key));
+        assert!(media.error(&key).unwrap().contains("50 MB"));
+
+        let huge = DynamicImage::new_luma8(8000, 5001);
+        assert!(check_dimensions(&huge).is_err());
+        assert!(check_dimensions(&DynamicImage::new_luma8(10_001, 1)).is_err());
+    }
+
+    #[test]
+    fn explicit_protocol_overrides_detection() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut opts = options(dir.path());
+        opts.protocol = ProtocolChoice::Kitty;
+        let mut media = MediaManager::new(&opts);
+        media.configure(&opts);
+        assert_eq!(media.protocol_name(), "Kitty");
+        opts.protocol = ProtocolChoice::Iterm2;
+        media.configure(&opts);
+        assert_eq!(media.protocol_name(), "Iterm2");
+        opts.protocol = ProtocolChoice::Sixel;
+        media.configure(&opts);
+        assert_eq!(media.protocol_name(), "Sixel");
+        opts.protocol = ProtocolChoice::Halfblocks;
+        media.configure(&opts);
+        assert_eq!(media.protocol_name(), "Halfblocks");
     }
 
     #[test]
@@ -686,6 +814,16 @@ mod tests {
                 .any(|pixel| pixel.0[3] > 0 && pixel.0[0] > 0)
         );
         media.clear_encodings();
+    }
+
+    #[test]
+    fn derives_font_size_from_terminal_pixels_when_plausible() {
+        let font = font_size_from_pixels(240, 60, 1920, 1080).unwrap();
+        assert_eq!((font.width, font.height), (8, 18));
+        assert!(font_size_from_pixels(0, 60, 1920, 1080).is_none());
+        assert!(font_size_from_pixels(240, 60, 0, 0).is_none());
+        assert!(font_size_from_pixels(240, 60, 240, 60).is_none());
+        assert!(font_size_from_pixels(2, 2, u16::MAX, u16::MAX).is_none());
     }
 
     #[test]

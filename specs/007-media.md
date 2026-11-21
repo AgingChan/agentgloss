@@ -2,11 +2,11 @@
 
 ## Images
 
-- Resolve Markdown image paths relative to the document directory. Absolute local paths are allowed; `http://` and `https://` are not fetched and render as links.
+- Resolve Markdown image paths relative to the document directory. Absolute local paths are allowed; `http://` and `https://` are not fetched, schedule no media worker, and render as link-styled text.
 - Supported: PNG, JPEG, WebP, BMP, and the first frame of GIF. SVG is rasterized with `resvg`/`usvg`.
-- Limits: 50 MB per file, 10,000 px per side, 40 million pixels; oversized inputs show a placeholder with dimensions.
+- Limits: 50 MB per file, 10,000 px per side, 40 million pixels; oversized inputs show a placeholder and report the limit in the status line (dimensions when they are known).
 - Scale to the available content width, preserve aspect ratio. Alt text is the caption; the source path is shown in the placeholder/status.
-- `image` decodes raster formats; `fontdb` loads system fonts once for SVG text. If no fonts are available, SVG text may be missing; the status line warns.
+- `image` decodes raster formats; `fontdb` loads system fonts once for SVG text. If no fonts are available, SVG text may be missing.
 
 ## Terminal protocols
 
@@ -14,6 +14,7 @@
 - Override with `--protocol auto|kitty|iterm2|sixel|halfblocks` or config.
 - Half-blocks are the universal fallback and are always available. The `chafa-dyn` feature is disabled; no libchafa dependency.
 - Kitty/Ghostty/WezTerm: sharp graphics. Terax/xterm.js: half-blocks. tmux: `allow-passthrough` is required beyond half-blocks; tmux 3.2a lacks Sixel. WSL2/Windows Terminal: Sixel only when the terminal build supports it.
+- Derive the terminal cell pixel size from `TIOCGWINSZ` (`window_size`) when columns, rows, and pixel dimensions are present and plausible; otherwise fall back to 10x20. Never query stdio for font size, for the same input-stealing reason.
 - On resize, invalidate all protocol encodings and force a full repaint.
 - Never draw text over an image rectangle, including blank cells. Clear stale placements when scrolling or resizing.
 
@@ -21,8 +22,8 @@
 
 - `MediaResolver` produces `MediaRef` values from `BlockKind::Image` and `BlockKind::Mermaid`.
 - Decoding/rasterization/encoding runs off the UI thread. The UI draws a placeholder until a result arrives; generation counters discard stale results.
-- Content-addressed in-memory cache for encoded protocol states, keyed by content/engine/theme/protocol/target size. Disk caching and an LRU bound are deferred.
-- Cache key: SHA-256 of content/engine/version/theme/target pixel dimensions.
+- Content-addressed in-memory cache for encoded protocol states, keyed by content/engine/theme/protocol/target cell size. Disk caching and an LRU bound are deferred.
+- Image key: SHA-256 of file content, plus source string, protocol, and target cell size. Mermaid key: SHA-256 of the source, plus engine, theme, protocol, and target cell size. A cache-version prefix invalidates old encodings.
 - Only blocks near the viewport are decoded and encoded.
 
 ## Mermaid
@@ -40,6 +41,7 @@
 - Resolve relative, absolute, missing, remote, and oversized image paths.
 - Decode a generated PNG and a simple SVG; assert dimensions and non-blank pixels.
 - Protocol selection precedence and half-block fallback.
+- Font-size derivation accepts plausible pixel metrics and rejects zero/bogus ones.
 - Cache hit/miss, invalidation on size change, and content-addressed keys.
 - Mermaid flowchart, sequence, and class fixtures render non-empty PNGs with sane dimensions.
 - Invalid Mermaid falls back to source; `mmdc` fallback uses a fake executable.

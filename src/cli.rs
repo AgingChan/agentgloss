@@ -245,6 +245,7 @@ fn run_request(file: &PathBuf, sidecar_override: Option<&PathBuf>) -> anyhow::Re
         );
     }
     let mut store = outcome.store;
+    store.start_round_if_changed(&document);
     store.request();
     store.save(&sidecar)?;
     println!("Review requested for {}", file.display());

@@ -58,8 +58,6 @@ fn upsert_block(path: &Path, block: &str) -> anyhow::Result<()> {
             existing[..start].trim_end(),
             existing[end + END.len()..].trim_start_matches('\n'),
         ),
-        (Some(start), None) => (existing[..start].trim_end(), ""),
-        (None, Some(end)) => ("", existing[end + END.len()..].trim_start_matches('\n')),
         _ => (existing.trim_end(), ""),
     };
     let mut content = String::new();
@@ -307,6 +305,27 @@ mod tests {
         assert!(text.contains("mdreview request"));
         assert!(text.contains("mdreview wait"));
         assert!(text.contains("mdreview resolve"));
+    }
+
+    #[test]
+    fn gemini_and_generic_installs_are_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let gemini = dir.path().join("GEMINI.md");
+        std::fs::write(&gemini, "# Gemini notes\n\nKeep me.\n").unwrap();
+        install(InstallAgent::Gemini, dir.path()).unwrap();
+        let once = std::fs::read_to_string(&gemini).unwrap();
+        install(InstallAgent::Gemini, dir.path()).unwrap();
+        let twice = std::fs::read_to_string(&gemini).unwrap();
+        assert_eq!(once, twice);
+        assert!(twice.contains("Keep me."));
+        assert_eq!(twice.matches(START).count(), 1);
+
+        let generic_path = dir.path().join("mdreview-agent.md");
+        install(InstallAgent::Generic, dir.path()).unwrap();
+        let once = std::fs::read_to_string(&generic_path).unwrap();
+        install(InstallAgent::Generic, dir.path()).unwrap();
+        let twice = std::fs::read_to_string(&generic_path).unwrap();
+        assert_eq!(once, twice);
     }
 
     #[test]

@@ -113,11 +113,18 @@ impl Config {
     }
 
     pub fn cache_dir(&self) -> PathBuf {
-        self.cache_dir.clone().unwrap_or_else(|| {
+        let dir = self.cache_dir.clone().unwrap_or_else(|| {
             dirs::cache_dir()
                 .unwrap_or_else(|| PathBuf::from(".cache"))
                 .join("mdreview")
-        })
+        });
+        if let Some(text) = dir.to_str()
+            && let Some(rest) = text.strip_prefix("~/")
+            && let Some(home) = dirs::home_dir()
+        {
+            return home.join(rest);
+        }
+        dir
     }
 }
 

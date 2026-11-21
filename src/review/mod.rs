@@ -95,11 +95,17 @@ impl Anchor {
         let start = clamp_boundary(&document.source, range.start);
         let end = clamp_boundary(&document.source, range.end.max(start));
         let block = document.block_at(start).ok_or(ReviewError::EmptyDocument)?;
-        let (start, end) = if start == end {
+        let (start, mut end) = if start == end {
             (block.source.start, block.source.end.max(block.source.start))
         } else {
             (start, end)
         };
+        if end > start && document.source.as_bytes()[end - 1] == b'\n' {
+            end -= 1;
+            if end > start && document.source.as_bytes()[end - 1] == b'\r' {
+                end -= 1;
+            }
+        }
         let quote = document.source[start..end].to_string();
         if quote.trim().is_empty() {
             return Err(ReviewError::EmptyAnchor);
@@ -127,6 +133,17 @@ pub struct AnchorEvent {
     pub old_start: usize,
     pub new_start: usize,
     pub at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Draft {
+    pub kind: ItemKind,
+    pub body: String,
+    #[serde(default)]
+    pub original: Option<String>,
+    pub anchor: Anchor,
+    #[serde(default)]
+    pub editing_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -162,6 +179,8 @@ pub struct ReviewStore {
     pub next_id: u32,
     #[serde(default)]
     pub items: Vec<ReviewItem>,
+    #[serde(default)]
+    pub draft: Option<Draft>,
 }
 
 fn default_next_id() -> u32 {
@@ -200,6 +219,7 @@ impl ReviewStore {
             approval: None,
             next_id: 1,
             items: Vec::new(),
+            draft: None,
         }
     }
 
@@ -289,6 +309,14 @@ impl ReviewStore {
         self.approval = None;
     }
 
+    pub fn set_draft(&mut self, draft: Draft) {
+        self.draft = Some(draft);
+    }
+
+    pub fn clear_draft(&mut self) {
+        self.draft = None;
+    }
+
     pub fn add_comment(&mut self, anchor: Anchor, body: impl Into<String>) -> String {
         self.add_item(ItemKind::Comment, anchor, body.into(), None)
     }
@@ -373,6 +401,9 @@ impl ReviewStore {
         let item = self
             .item_mut(id)
             .ok_or_else(|| ReviewError::ItemNotFound(id.to_string()))?;
+        if item.status == ItemStatus::Stale {
+            return Err(ReviewError::StaleItem(id.to_string()));
+        }
         let start = item.anchor.source_start;
         item.status = ItemStatus::Open;
         item.resolved_round = None;
@@ -648,12 +679,12 @@ fn find_all(haystack: &str, needle: &str) -> Vec<usize> {
     matches
 }
 
-fn context_score(anchor: &Anchor, source: &str, position: usize) -> usize {
+fn context_score(anchor: &Anchor, source: &str, position: usize, quote_len: usize) -> usize {
     let mut score = 0;
     if !anchor.prefix.is_empty() && source[..position].ends_with(&anchor.prefix) {
         score += 2;
     }
-    let end = position + anchor.quote.len();
+    let end = position + quote_len;
     if !anchor.suffix.is_empty() && end <= source.len() && source[end..].starts_with(&anchor.suffix)
     {
         score += 2;
@@ -661,9 +692,14 @@ fn context_score(anchor: &Anchor, source: &str, position: usize) -> usize {
     score
 }
 
-fn pick_candidate(anchor: &Anchor, source: &str, candidates: &[usize]) -> Option<usize> {
+fn pick_candidate(
+    anchor: &Anchor,
+    source: &str,
+    candidates: &[usize],
+    quote_len: usize,
+) -> Option<usize> {
     candidates.iter().copied().max_by_key(|position| {
-        let score = context_score(anchor, source, *position);
+        let score = context_score(anchor, source, *position, quote_len);
         let distance = (*position as isize - anchor.source_start as isize).unsigned_abs();
         (score, std::cmp::Reverse(distance))
     })
@@ -760,7 +796,7 @@ fn reanchor_anchor(anchor: &Anchor, document: &Document) -> Option<(Anchor, &'st
     let source = &document.source;
 
     let exact = find_all(source, &anchor.quote);
-    if let Some(position) = pick_candidate(anchor, source, &exact) {
+    if let Some(position) = pick_candidate(anchor, source, &exact, anchor.quote.len()) {
         let range = position..(position + anchor.quote.len());
         let block = document.block_at(position)?;
         return Some((
@@ -772,7 +808,12 @@ fn reanchor_anchor(anchor: &Anchor, document: &Document) -> Option<(Anchor, &'st
     let (normalized_source, map) = normalized_with_map(source);
     let needle = normalize_needle(&anchor.quote);
     let normalized_matches = find_all(&normalized_source, &needle);
-    if let Some(position) = pick_candidate(anchor, &normalized_source, &normalized_matches) {
+    if let Some(position) = pick_candidate(
+        anchor,
+        &normalized_source,
+        &normalized_matches,
+        needle.len(),
+    ) {
         let normalized_end = (position + needle.len()).min(map.len());
         let start = *map.get(position)?;
         let end = map.get(normalized_end).copied().unwrap_or(source.len());
@@ -837,6 +878,8 @@ pub enum ReviewError {
     Locked { path: PathBuf },
     #[error("review item not found: {0}")]
     ItemNotFound(String),
+    #[error("stale item cannot be reopened; reattach it first: {0}")]
+    StaleItem(String),
     #[error("the document is empty")]
     EmptyDocument,
     #[error("the selected range has no reviewable text")]

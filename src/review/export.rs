@@ -32,8 +32,12 @@ pub fn export_prompt(store: &ReviewStore, include_resolved: bool) -> String {
     out.push_str(&format!("- Round: {}\n", store.round));
     out.push_str(&format!("- Document hash: {}\n", store.doc_hash));
     out.push_str(&format!("- Status: {}\n", status_label(store)));
-    if open == 0 && stale == 0 {
-        out.push_str("- Open items: 0\n\n");
+    if open == 0 {
+        out.push_str("- Open items: 0\n");
+        if stale > 0 {
+            out.push_str(&format!("- Stale items: {stale}\n"));
+        }
+        out.push('\n');
     } else {
         out.push_str(&format!(
             "- Open items: {} ({} comment{}, {} suggestion{})\n",
@@ -183,6 +187,36 @@ mod tests {
         assert!(prompt.contains(&format!("[{}] comment", id)));
         assert!(prompt.contains("> Hello world."));
         assert!(prompt.contains("mdreview resolve spec.md c1"));
+    }
+
+    #[test]
+    fn comment_prompt_is_a_stable_golden() {
+        let (store, _document, id) = fixture();
+        let anchor = &store.items[0].anchor;
+        let expected = format!(
+            "# mdreview review\n\n\
+- File: spec.md\n\
+- Round: 1\n\
+- Document hash: {}\n\
+- Status: feedback\n\
+- Open items: 1 (1 comment, 0 suggestions)\n\n\
+Address the items below. Answer every comment and accept or reject every suggestion.\n\
+After editing, mark fixed items resolved:\n\
+\x20\x20mdreview resolve spec.md {id}\n\n\
+## 1. [{id}] comment — open — lines {}-{}\n\
+Heading: Plan\n\
+Quote:\n\
+> Hello world.\n\
+Comment:\n\
+Please clarify this.\n\
+Anchor: bytes {}-{}\n\n",
+            store.doc_hash,
+            anchor.line_start,
+            anchor.line_end,
+            anchor.source_start,
+            anchor.source_end
+        );
+        assert_eq!(export_prompt(&store, false), expected);
     }
 
     #[test]

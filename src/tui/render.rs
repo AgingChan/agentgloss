@@ -33,12 +33,14 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
 
     let (outline_area, review_area, doc_area) = panel_areas(body, app.focus, area.width);
     let narrow_overlay = if area.width < 80 && app.focus != Focus::Document {
-        Some((app.focus, centered(body, 92, 90)))
+        Some((app.focus, body))
     } else {
         None
     };
-    if app.layout_width() != doc_area.width as usize {
-        app.rebuild(doc_area.width as usize);
+    let gutter = if app.source_mode() { 8 } else { 2 };
+    let content_width = doc_area.width.saturating_sub(gutter).max(1);
+    if app.layout_width() != content_width as usize {
+        app.rebuild(content_width as usize);
     }
     app.set_viewport(doc_area.height as usize);
     app.prepare_media(doc_area);
@@ -228,7 +230,7 @@ fn render_line(app: &App, index: usize) -> Line<'static> {
     if app.focus == Focus::Document && app.cursor == index {
         line_style = line_style.bg(Color::Blue).fg(Color::White);
     }
-    if let Some(search) = &app.search
+    if let Some(search) = app.search.as_ref().or(app.last_search.as_ref())
         && !search.query.is_empty()
         && line
             .text

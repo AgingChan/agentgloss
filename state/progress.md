@@ -19,3 +19,12 @@
 - Validated tmux popup/detach command construction with a fake tmux executable.
 - Tasks MDREVIEW-1 through MDREVIEW-12 are done. MDREVIEW-13 (final gate, release, docs) is in progress.
 - Next: run `./harness/gate.sh`, build the release binary, and run the final QA/report pass.
+
+## 2026-11-21 — Session 2: QA hardening
+
+- Fixed the request-first round lifecycle: `request` now advances a signed-off revision before clearing the signoff, so multi-round reviews increment correctly.
+- Reserved the comment gutter in layout width so full-width text is no longer clipped.
+- Trimmed trailing newlines from anchors and added draft autosave/resume in the sidecar.
+- Fixed stale-item reopen, page motions, malformed install markers, media status clobbering, search highlighting, Enter-to-open, normalized anchor scoring, narrow overlay size, and stale-only export headers.
+- Added coverage for two-round flows, Mermaid sequence/class diagrams, failed-render caching, Gemini/generic installs, export goldens, gutters, Enter-to-open, review/footer clicks, 100x30 layout, drafts, and file reload.
+- 98 tests pass; fmt and clippy are clean.

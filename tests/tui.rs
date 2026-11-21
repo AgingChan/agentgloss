@@ -172,6 +172,77 @@ fn tiny_terminal_does_not_panic() {
 }
 
 #[test]
+fn gutter_width_is_reserved_in_layout() {
+    let long = "x".repeat(78);
+    let source = format!("# A\n\n{long}\n");
+    let (mut app, _dir) = fixture(&source);
+    let text = draw(&mut app, 80, 24);
+    assert_eq!(app.layout_width(), 78);
+    assert!(text.matches('x').count() >= 78);
+}
+
+#[test]
+fn enter_on_a_commented_line_opens_the_item() {
+    let (mut app, _dir) = fixture("# A\n\nhello world\n");
+    let start = app.document.source.find("hello world").unwrap();
+    let anchor = Anchor::from_range(&app.document, start..start + 11).unwrap();
+    app.store.add_comment(anchor, "note");
+    app.refresh_markers();
+    let line = app
+        .lines
+        .iter()
+        .position(|line| line.text.contains("hello world"))
+        .unwrap();
+    app.set_cursor(line);
+    app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    assert_eq!(app.focus, Focus::Review);
+}
+
+#[test]
+fn review_panel_and_footer_clicks_work() {
+    let (mut app, _dir) = fixture("# A\n\nhello world\n");
+    let start = app.document.source.find("hello world").unwrap();
+    let anchor = Anchor::from_range(&app.document, start..start + 11).unwrap();
+    app.store.add_comment(anchor, "note");
+    app.refresh_markers();
+    app.focus = Focus::Review;
+    draw(&mut app, 80, 24);
+    let review = app.layout.as_ref().unwrap().review.unwrap();
+    app.handle_mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: review.x,
+        row: review.y,
+        modifiers: KeyModifiers::NONE,
+    });
+    assert_eq!(app.review_cursor, 0);
+
+    app.focus = Focus::Document;
+    draw(&mut app, 80, 24);
+    let layout = app.layout.clone().unwrap();
+    let (comment_button, _) = layout
+        .footer_buttons
+        .iter()
+        .find(|(_, action)| *action == mdreview::tui::app::FooterAction::Comment)
+        .unwrap();
+    app.handle_mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: comment_button.x,
+        row: comment_button.y,
+        modifiers: KeyModifiers::NONE,
+    });
+    assert!(app.is_editing());
+}
+
+#[test]
+fn renders_at_100x30() {
+    let (mut app, _dir) = fixture("# Plan\n\nHello world.\n\n## Next\n\nMore.\n");
+    app.focus = Focus::Review;
+    let text = draw(&mut app, 100, 30);
+    assert!(text.contains("Plan"));
+    assert!(text.contains("Review"));
+}
+
+#[test]
 fn signoff_from_tui_exits_with_feedback() {
     let (mut app, _dir) = fixture("# Plan\n\nHello world.\n");
     app.set_cursor(1);
@@ -328,7 +399,9 @@ fn selection_expands_to_whole_source_line() {
     app.select_line();
     let range = app.selected_range().unwrap();
     assert_eq!(range.start, 0);
-    assert_eq!(range.end, app.document.source.len());
+    let anchor = Anchor::from_range(&app.document, range).unwrap();
+    assert!(!anchor.quote.ends_with('\n'));
+    assert!(anchor.quote.contains("one two"));
 }
 
 #[test]

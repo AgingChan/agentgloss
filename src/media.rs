@@ -22,6 +22,7 @@ pub type MediaKey = String;
 const MAX_FILE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_DIMENSION: u32 = 10_000;
 const MAX_PIXELS: u64 = 40_000_000;
+const CACHE_VERSION: u32 = 1;
 
 struct MediaResult {
     key: MediaKey,
@@ -125,7 +126,8 @@ impl MediaManager {
         let target = (target.0.max(1), target.1.max(1));
         let stamp = self.image_stamp(document_path, src);
         let key = format!(
-            "img:{}:{}x{}:{}:{}",
+            "img:{}:{}:{}x{}:{}:{}",
+            CACHE_VERSION,
             src,
             target.0,
             target.1,
@@ -157,7 +159,8 @@ impl MediaManager {
         let target = (target.0.max(1), target.1.max(1));
         let source_hash = hex::encode(Sha256::digest(source.as_bytes()));
         let key = format!(
-            "mermaid:{:?}:{:?}:{}:{}x{}:{}",
+            "mermaid:{}:{:?}:{:?}:{}:{}x{}:{}",
+            CACHE_VERSION,
             self.engine,
             self.theme,
             source_hash,
@@ -544,6 +547,32 @@ mod tests {
         let key = media.ensure_mermaid("flowchart LR\nA-->B\n", (30, 15));
         assert!(wait(&mut media, &key), "{:?}", media.error(&key));
         assert!(media.get(&key).is_some());
+    }
+
+    #[test]
+    fn renders_sequence_and_class_diagrams() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut media = MediaManager::new(&options(dir.path()));
+        for source in [
+            "sequenceDiagram\n  Alice->>Bob: Hi\n  Bob-->>Alice: Hello\n",
+            "classDiagram\n  class Animal\n  Animal <|-- Dog\n",
+        ] {
+            let key = media.ensure_mermaid(source, (30, 15));
+            assert!(wait(&mut media, &key), "{:?}", media.error(&key));
+            assert!(media.get(&key).is_some());
+        }
+    }
+
+    #[test]
+    fn failed_mermaid_render_is_cached() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut media = MediaManager::new(&options(dir.path()));
+        let key = media.ensure_mermaid("not a diagram\n", (30, 15));
+        assert!(wait(&mut media, &key));
+        assert!(media.error(&key).is_some());
+        let again = media.ensure_mermaid("not a diagram\n", (30, 15));
+        assert_eq!(key, again);
+        assert!(media.error(&again).is_some());
     }
 
     #[test]

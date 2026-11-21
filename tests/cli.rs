@@ -238,6 +238,54 @@ fn custom_sidecar_commands_work() {
 }
 
 #[test]
+fn request_after_edit_increments_round() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let _ = seed_comment(&path, "Round one.");
+    let sidecar = sidecar_path(&path);
+    let mut store = ReviewStore::load(&sidecar).unwrap();
+    store.signoff_feedback();
+    store.save(&sidecar).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&path, "# Plan\n\nHello world.\n\nChanged revision.\n").unwrap();
+    assert!(run(dir.path(), &["request", "spec.md"]).status.success());
+    let status = run(dir.path(), &["status", "spec.md", "--json"]);
+    let value: serde_json::Value = serde_json::from_slice(&status.stdout).unwrap();
+    assert_eq!(value["round"], 2, "{value}");
+    assert_eq!(value["open"], 1);
+}
+
+#[test]
+fn two_round_end_to_end_flow() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let id = seed_comment(&path, "First round.");
+    let sidecar = sidecar_path(&path);
+    let mut store = ReviewStore::load(&sidecar).unwrap();
+    store.signoff_feedback();
+    store.save(&sidecar).unwrap();
+    let first = run(dir.path(), &["export", "spec.md"]);
+    assert_eq!(first.status.code(), Some(10));
+    assert!(String::from_utf8_lossy(&first.stdout).contains("First round."));
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(
+        &path,
+        "# Plan\n\nHello world.\n\nSecond paragraph with more text and a revision.\n",
+    )
+    .unwrap();
+    assert!(run(dir.path(), &["request", "spec.md"]).status.success());
+    let status = run(dir.path(), &["status", "spec.md", "--json"]);
+    let value: serde_json::Value = serde_json::from_slice(&status.stdout).unwrap();
+    assert_eq!(value["round"], 2);
+    assert_eq!(value["open"], 1);
+    let resolve = run(dir.path(), &["resolve", "spec.md", &id]);
+    assert!(resolve.status.success());
+    let export = run(dir.path(), &["export", "spec.md"]);
+    assert_eq!(export.status.code(), Some(0), "{export:?}");
+}
+
+#[test]
 fn status_human_output() {
     let dir = tempfile::tempdir().unwrap();
     write_spec(dir.path());

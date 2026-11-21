@@ -5,7 +5,7 @@ use crate::document::{
     BlockKind, Document, InlineStyle, StyledSpan, VisualKind, VisualLine, layout,
 };
 use crate::media::MediaManager;
-use crate::review::{Anchor, ItemKind, ItemStatus, ReviewItem, ReviewStore, now};
+use crate::review::{Anchor, Draft, ItemKind, ItemStatus, ReviewItem, ReviewStore, now};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use edtui::{EditorEventHandler, EditorMode, EditorState as EdtuiState, Lines};
 use ratatui::layout::Rect;
@@ -210,6 +210,27 @@ impl App {
             pending_reload: false,
         };
         app.refresh_markers();
+        if let Some(draft) = app.store.draft.clone() {
+            let title = match draft.kind {
+                ItemKind::Comment if draft.editing_id.is_some() => "Resume comment edit",
+                ItemKind::Comment => "Resume comment",
+                ItemKind::Suggestion if draft.editing_id.is_some() => "Resume suggestion edit",
+                ItemKind::Suggestion => "Resume suggestion",
+            };
+            let target = EditorTarget {
+                id: draft.editing_id,
+                kind: draft.kind,
+                anchor: draft.anchor,
+                original: draft.original,
+            };
+            app.editor = Some(Editor::new(
+                target,
+                title.to_string(),
+                draft.body,
+                app.input,
+            ));
+            app.status = "Resumed an unfinished draft".to_string();
+        }
         app
     }
 
@@ -226,6 +247,29 @@ impl App {
     pub fn set_editor_text(&mut self, text: &str) {
         if let Some(editor) = self.editor.as_mut() {
             editor.state.lines = Lines::from(text);
+        }
+        self.persist_draft();
+    }
+
+    fn persist_draft(&mut self) {
+        let Some(editor) = self.editor.as_ref() else {
+            return;
+        };
+        let draft = Draft {
+            kind: editor.target.kind,
+            body: editor
+                .state
+                .lines
+                .to_string()
+                .trim_end_matches('\n')
+                .to_string(),
+            original: editor.target.original.clone(),
+            anchor: editor.target.anchor.clone(),
+            editing_id: editor.target.id.clone(),
+        };
+        self.store.set_draft(draft);
+        if let Err(error) = self.store.save(&self.sidecar) {
+            self.status = format!("Draft save failed: {error}");
         }
     }
 
@@ -353,7 +397,9 @@ impl App {
                 _ => None,
             };
             if let Some(key) = key {
-                if let Some(error) = self.media.error(&key) {
+                if let Some(error) = self.media.error(&key)
+                    && (self.status.starts_with("Ready") || self.status.starts_with("Media:"))
+                {
                     self.status = format!("Media: {error}");
                 }
                 self.media_keys.insert(block, key);
@@ -643,6 +689,7 @@ impl App {
                     self.input,
                 );
                 self.editor = Some(editor);
+                self.persist_draft();
                 self.status = "Comment editor — Ctrl+Enter saves, Esc cancels".to_string();
             }
             Err(error) => self.status = format!("Cannot anchor comment: {error}"),
@@ -680,6 +727,7 @@ impl App {
                     self.input,
                 );
                 self.editor = Some(editor);
+                self.persist_draft();
                 self.status = "Suggestion editor — Ctrl+Enter saves, Esc cancels".to_string();
             }
             Err(error) => self.status = format!("Cannot anchor suggestion: {error}"),
@@ -720,6 +768,7 @@ impl App {
             self.input,
         );
         self.editor = Some(editor);
+        self.persist_draft();
         self.status = "Editing — Ctrl+Enter saves, Esc cancels".to_string();
     }
 
@@ -927,12 +976,20 @@ impl App {
                 KeyCode::Char('j') => self.move_cursor(1),
                 KeyCode::Char('k') => self.move_cursor(-1),
                 KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.scroll(self.viewport_height.max(1) as isize / 2);
-                    self.cursor = self.scroll.min(self.lines.len().saturating_sub(1));
+                    let page = (self.viewport_height.max(1) / 2).max(1) as isize;
+                    self.scroll(page);
+                    self.cursor = (self.cursor as isize + page)
+                        .clamp(0, (self.lines.len().saturating_sub(1)) as isize)
+                        as usize;
+                    self.ensure_cursor_visible(self.viewport_height.max(1));
                 }
                 KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.scroll(-(self.viewport_height.max(1) as isize / 2));
-                    self.cursor = self.scroll.min(self.lines.len().saturating_sub(1));
+                    let page = (self.viewport_height.max(1) / 2).max(1) as isize;
+                    self.scroll(-page);
+                    self.cursor = (self.cursor as isize - page)
+                        .clamp(0, (self.lines.len().saturating_sub(1)) as isize)
+                        as usize;
+                    self.ensure_cursor_visible(self.viewport_height.max(1));
                 }
                 KeyCode::Char('G') => {
                     self.cursor = self.lines.len().saturating_sub(1);
@@ -948,7 +1005,7 @@ impl App {
                 KeyCode::Char('/') => self.open_search(),
                 KeyCode::Char('n') => self.next_match(true),
                 KeyCode::Char('N') => self.next_match(false),
-                KeyCode::Enter => self.toggle_media_source(),
+                KeyCode::Enter => self.enter_action(),
                 _ => {}
             },
             InputMode::Standard => match key.code {
@@ -985,12 +1042,20 @@ impl App {
                     }
                 }
                 KeyCode::PageDown => {
-                    self.scroll(self.viewport_height.max(1) as isize);
-                    self.cursor = self.scroll.min(self.lines.len().saturating_sub(1));
+                    let page = self.viewport_height.max(1) as isize;
+                    self.scroll(page);
+                    self.cursor = (self.cursor as isize + page)
+                        .clamp(0, (self.lines.len().saturating_sub(1)) as isize)
+                        as usize;
+                    self.ensure_cursor_visible(self.viewport_height.max(1));
                 }
                 KeyCode::PageUp => {
-                    self.scroll(-(self.viewport_height.max(1) as isize));
-                    self.cursor = self.scroll.min(self.lines.len().saturating_sub(1));
+                    let page = self.viewport_height.max(1) as isize;
+                    self.scroll(-page);
+                    self.cursor = (self.cursor as isize - page)
+                        .clamp(0, (self.lines.len().saturating_sub(1)) as isize)
+                        as usize;
+                    self.ensure_cursor_visible(self.viewport_height.max(1));
                 }
                 KeyCode::Home => self.set_cursor(0),
                 KeyCode::End => self.set_cursor(self.lines.len().saturating_sub(1)),
@@ -1010,7 +1075,7 @@ impl App {
                 }
                 KeyCode::Char('n') => self.next_match(true),
                 KeyCode::Char('N') => self.next_match(false),
-                KeyCode::Enter => self.toggle_media_source(),
+                KeyCode::Enter => self.enter_action(),
                 _ => {}
             },
         }
@@ -1044,6 +1109,22 @@ impl App {
                 }
                 _ => {}
             }
+        }
+    }
+
+    fn enter_action(&mut self) {
+        let block = self.current_line().map(|line| line.block);
+        if let Some(block) = block
+            && matches!(
+                self.document.blocks.get(block).map(|b| &b.kind),
+                Some(BlockKind::Mermaid { .. })
+            )
+        {
+            self.toggle_media_source();
+            return;
+        }
+        if self.markers.get(self.cursor).copied().unwrap_or(false) {
+            self.open_item_at_line(self.cursor);
         }
     }
 
@@ -1179,12 +1260,15 @@ impl App {
                 InputMode::Vim => editor.state.mode == EditorMode::Normal,
             };
             if can_cancel {
+                self.store.clear_draft();
+                self.save_store();
                 self.editor = None;
                 self.status = "Edit cancelled".to_string();
                 return;
             }
         }
         editor.handler.on_key_event(key, &mut editor.state);
+        self.persist_draft();
     }
 
     fn save_editor(&mut self) {
@@ -1234,6 +1318,7 @@ impl App {
                 }
             }
         }
+        self.store.clear_draft();
         self.save_store();
         self.refresh_markers();
         self.status = "Review item saved".to_string();
@@ -1705,5 +1790,33 @@ mod tests {
         assert!(app.editor.is_none());
         app.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL));
         assert!(app.search.is_some());
+    }
+
+    #[test]
+    fn draft_resumes_after_reopen() {
+        let (mut app, dir) = fixture("# A\n\nhello\n");
+        app.set_cursor(1);
+        app.handle_key(key(KeyCode::Char('c')));
+        app.set_editor_text("unfinished thought");
+        let sidecar = app.sidecar.clone();
+        let document_path = app.document.path.clone();
+        drop(app);
+
+        let document = Document::load(&document_path).unwrap();
+        let store = ReviewStore::load(&sidecar).unwrap();
+        let options = TuiOptions {
+            keys: Keys::Vim,
+            mouse: true,
+            protocol: Protocol::Halfblocks,
+            theme: Theme::Dark,
+            mermaid_engine: MermaidEngine::Source,
+            cache_dir: dir.path().join("cache"),
+        };
+        let reopened = App::new(document, store, sidecar, options);
+        assert!(reopened.editor.is_some());
+        assert_eq!(
+            reopened.editor_text().as_deref(),
+            Some("unfinished thought")
+        );
     }
 }

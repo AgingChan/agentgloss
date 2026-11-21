@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "spec", "status", "priority"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Z]+-[0-9]+$" },
+          "title": { "type": "string" },
+          "spec": { "type": "string", "description": "Reference to spec file" },
+          "status": { "enum": ["pending", "in_progress", "done", "blocked"] },
+          "priority": { "type": "integer", "minimum": 1 },
+          "depends_on": { "type": "array", "items": { "type": "string" } },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "tests": { "type": "array", "items": { "type": "string" } },
+              "manual_checks": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "completed_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

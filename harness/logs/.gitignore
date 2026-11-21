@@ -1,0 +1,4 @@
+/session-*.log
+/plan-*.log
+/qa-*.log
+!.gitignore

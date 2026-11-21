@@ -1,0 +1,301 @@
+{
+  "tasks": [
+    {
+      "id": "MDREVIEW-1",
+      "title": "Harness, Rust skeleton, and static build",
+      "spec": "specs/001-harness.md",
+      "status": "done",
+      "priority": 1,
+      "depends_on": [],
+      "verification": {
+        "tests": [
+          "init.sh passes",
+          "gate.sh passes the baseline"
+        ],
+        "manual_checks": [
+          "cargo check succeeds",
+          "static musl binary links"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-2",
+      "title": "CLI, config, and sidecar storage",
+      "spec": "specs/002-core-cli.md",
+      "status": "done",
+      "priority": 2,
+      "depends_on": [
+        "MDREVIEW-1"
+      ],
+      "verification": {
+        "tests": [
+          "CLI parsing",
+          "sidecar atomic write/read",
+          "lock behavior",
+          "corrupt sidecar backup"
+        ],
+        "manual_checks": [
+          "request/status/resolve flows work"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-3",
+      "title": "Markdown document model and source map",
+      "spec": "specs/003-document-model.md",
+      "status": "done",
+      "priority": 3,
+      "depends_on": [
+        "MDREVIEW-1"
+      ],
+      "verification": {
+        "tests": [
+          "GFM block parsing",
+          "source byte/line ranges",
+          "visual line mapping",
+          "unicode wrapping"
+        ],
+        "manual_checks": [
+          "fixture Markdown renders expected blocks"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-4",
+      "title": "Review model, anchors, rounds, and re-anchoring",
+      "spec": "specs/004-review-model.md",
+      "status": "done",
+      "priority": 4,
+      "depends_on": [
+        "MDREVIEW-3"
+      ],
+      "verification": {
+        "tests": [
+          "anchor exact/moved/duplicate/stale",
+          "suggestion staleness",
+          "round increments",
+          "approval invalidation"
+        ],
+        "manual_checks": [
+          "re-anchor fixture suite"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-5",
+      "title": "Prompt and JSON export",
+      "spec": "specs/005-export.md",
+      "status": "done",
+      "priority": 5,
+      "depends_on": [
+        "MDREVIEW-4"
+      ],
+      "verification": {
+        "tests": [
+          "golden prompt",
+          "escaping",
+          "ordering",
+          "approved/empty output"
+        ],
+        "manual_checks": [
+          "export exit codes"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-6",
+      "title": "TUI foundation, navigation, outline, search, help",
+      "spec": "specs/006-tui.md",
+      "status": "done",
+      "priority": 6,
+      "depends_on": [
+        "MDREVIEW-2",
+        "MDREVIEW-3"
+      ],
+      "verification": {
+        "tests": [
+          "layout at 80x24",
+          "Vim/standard dispatch",
+          "outline/search/help",
+          "source toggle",
+          "quit/signoff"
+        ],
+        "manual_checks": [
+          "TestBackend scenarios"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-7",
+      "title": "Comments and suggested edits in the TUI",
+      "spec": "specs/006-tui.md",
+      "status": "done",
+      "priority": 7,
+      "depends_on": [
+        "MDREVIEW-4",
+        "MDREVIEW-6"
+      ],
+      "verification": {
+        "tests": [
+          "add/edit/delete/resolve comment",
+          "suggestion editor",
+          "autosave",
+          "selection mapping"
+        ],
+        "manual_checks": [
+          "persisted roundtrip"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-8",
+      "title": "Mouse selection and hit-testing",
+      "spec": "specs/006-tui.md",
+      "status": "done",
+      "priority": 8,
+      "depends_on": [
+        "MDREVIEW-6"
+      ],
+      "verification": {
+        "tests": [
+          "click line",
+          "drag selection",
+          "wheel scroll",
+          "click outline/review",
+          "mouse disabled"
+        ],
+        "manual_checks": [
+          "80x24 mouse scenario"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-9",
+      "title": "Image preview pipeline",
+      "spec": "specs/007-media.md",
+      "status": "done",
+      "priority": 9,
+      "depends_on": [
+        "MDREVIEW-6"
+      ],
+      "verification": {
+        "tests": [
+          "local image resolution",
+          "protocol selection",
+          "halfblock fallback",
+          "cache keys/invalidation",
+          "size limits"
+        ],
+        "manual_checks": [
+          "PNG/JPEG/SVG fixtures"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-10",
+      "title": "Mermaid rendering",
+      "spec": "specs/007-media.md",
+      "status": "done",
+      "priority": 10,
+      "depends_on": [
+        "MDREVIEW-9"
+      ],
+      "verification": {
+        "tests": [
+          "flowchart/sequence/class fixtures",
+          "Rust renderer output",
+          "mmdc fallback",
+          "source fallback",
+          "cache"
+        ],
+        "manual_checks": [
+          "diagram dimensions and pixel hash"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-11",
+      "title": "Agent handshake, tmux adapter, and install recipes",
+      "spec": "specs/008-agent-integration.md",
+      "status": "done",
+      "priority": 11,
+      "depends_on": [
+        "MDREVIEW-2",
+        "MDREVIEW-5"
+      ],
+      "verification": {
+        "tests": [
+          "request/wait/export",
+          "timeout",
+          "fake tmux popup",
+          "recipe generation/idempotency"
+        ],
+        "manual_checks": [
+          "Claude/Codex/Gemini/generic recipes"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-12",
+      "title": "Round lifecycle, file changes, stale reattach",
+      "spec": "specs/004-review-model.md",
+      "status": "done",
+      "priority": 12,
+      "depends_on": [
+        "MDREVIEW-4",
+        "MDREVIEW-7"
+      ],
+      "verification": {
+        "tests": [
+          "reload changed file",
+          "carry unresolved",
+          "archive resolved",
+          "reattach stale",
+          "approval invalidation"
+        ],
+        "manual_checks": [
+          "two-round end-to-end"
+        ]
+      },
+      "completed_at": "2026-11-21T11:18:55Z"
+    },
+    {
+      "id": "MDREVIEW-13",
+      "title": "End-to-end QA, performance, docs, release",
+      "spec": "specs/009-qa.md",
+      "status": "in_progress",
+      "priority": 13,
+      "depends_on": [
+        "MDREVIEW-8",
+        "MDREVIEW-9",
+        "MDREVIEW-10",
+        "MDREVIEW-11",
+        "MDREVIEW-12"
+      ],
+      "verification": {
+        "tests": [
+          "full gate",
+          "2k-line performance",
+          "feature acceptance matrix"
+        ],
+        "manual_checks": [
+          "QA report",
+          "README and install docs",
+          "static binary"
+        ]
+      },
+      "completed_at": null
+    }
+  ]
+}

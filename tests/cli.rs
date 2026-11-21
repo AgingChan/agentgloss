@@ -1,0 +1,386 @@
+use mdreview::document::Document;
+use mdreview::review::{Anchor, ReviewStore, StoreLock, sidecar_path};
+use std::path::Path;
+use std::process::{Command, Output};
+
+fn bin() -> &'static str {
+    env!("CARGO_BIN_EXE_mdreview")
+}
+
+fn run(dir: &Path, args: &[&str]) -> Output {
+    Command::new(bin())
+        .args(args)
+        .current_dir(dir)
+        .env_remove("TMUX")
+        .output()
+        .expect("run mdreview")
+}
+
+fn write_spec(dir: &Path) -> std::path::PathBuf {
+    let path = dir.join("spec.md");
+    std::fs::write(
+        &path,
+        "# Plan\n\nHello world.\n\nSecond paragraph with more text.\n",
+    )
+    .unwrap();
+    path
+}
+
+fn seed_comment(path: &Path, body: &str) -> String {
+    let document = Document::load(path).unwrap();
+    let start = document.source.find("Hello world.").unwrap();
+    let anchor = Anchor::from_range(&document, start..start + "Hello world.".len()).unwrap();
+    let sidecar = sidecar_path(path);
+    let mut store =
+        ReviewStore::load_or_recover(&sidecar, &path.display().to_string(), &document.hash)
+            .unwrap()
+            .store;
+    let id = store.add_comment(anchor, body);
+    store.save(&sidecar).unwrap();
+    id
+}
+
+#[test]
+fn version_and_help() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = run(dir.path(), &["--version"]);
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("mdreview"));
+    let help = run(dir.path(), &["--help"]);
+    assert!(help.status.success());
+    assert!(String::from_utf8_lossy(&help.stdout).contains("request"));
+}
+
+#[test]
+fn request_status_export_resolve_flow() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+
+    let request = run(dir.path(), &["request", "spec.md"]);
+    assert!(request.status.success(), "{request:?}");
+    assert!(String::from_utf8_lossy(&request.stdout).contains("mdreview review spec.md"));
+    assert!(sidecar_path(&path).exists());
+
+    let status = run(dir.path(), &["status", "spec.md", "--json"]);
+    assert!(status.status.success());
+    let value: serde_json::Value = serde_json::from_slice(&status.stdout).unwrap();
+    assert_eq!(value["round"], 1);
+    assert_eq!(value["open"], 0);
+
+    let id = seed_comment(&path, "Please clarify this.");
+    let export = run(dir.path(), &["export", "spec.md"]);
+    assert_eq!(export.status.code(), Some(10), "{export:?}");
+    let prompt = String::from_utf8_lossy(&export.stdout);
+    assert!(prompt.contains("mdreview review"));
+    assert!(prompt.contains(&id));
+    assert!(prompt.contains("Please clarify this."));
+
+    let json_export = run(dir.path(), &["export", "spec.md", "--format", "json"]);
+    assert_eq!(json_export.status.code(), Some(10));
+    let value: serde_json::Value = serde_json::from_slice(&json_export.stdout).unwrap();
+    assert_eq!(value["items"][0]["id"], id.as_str());
+
+    let resolve = run(dir.path(), &["resolve", "spec.md", &id]);
+    assert!(resolve.status.success(), "{resolve:?}");
+    let export = run(dir.path(), &["export", "spec.md"]);
+    assert_eq!(export.status.code(), Some(0), "{export:?}");
+}
+
+#[test]
+fn wait_returns_feedback_and_times_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let _ = seed_comment(&path, "Fix this.");
+    let document = Document::load(&path).unwrap();
+    let sidecar = sidecar_path(&path);
+    let mut store = ReviewStore::load(&sidecar).unwrap();
+    store.signoff_feedback();
+    store.doc_hash = document.hash.clone();
+    store.save(&sidecar).unwrap();
+
+    let wait = run(
+        dir.path(),
+        &["wait", "spec.md", "--timeout", "2", "--interval", "50"],
+    );
+    assert_eq!(wait.status.code(), Some(10), "{wait:?}");
+    assert!(String::from_utf8_lossy(&wait.stdout).contains("Fix this."));
+
+    let path2 = dir.path().join("other.md");
+    std::fs::write(&path2, "# Other\n").unwrap();
+    let wait = run(
+        dir.path(),
+        &["wait", "other.md", "--timeout", "1", "--interval", "50"],
+    );
+    assert_eq!(wait.status.code(), Some(3), "{wait:?}");
+}
+
+#[test]
+fn wait_returns_approval() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let document = Document::load(&path).unwrap();
+    let sidecar = sidecar_path(&path);
+    let mut store = ReviewStore::new(path.display().to_string(), document.hash.clone());
+    store.approve();
+    store.save(&sidecar).unwrap();
+    let wait = run(
+        dir.path(),
+        &["wait", "spec.md", "--timeout", "2", "--interval", "50"],
+    );
+    assert_eq!(wait.status.code(), Some(0), "{wait:?}");
+    assert!(String::from_utf8_lossy(&wait.stdout).contains("Status: approved"));
+}
+
+#[test]
+fn missing_sidecar_and_tmux_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    write_spec(dir.path());
+    let export = run(dir.path(), &["export", "spec.md"]);
+    assert_eq!(export.status.code(), Some(2), "{export:?}");
+    let tmux = run(dir.path(), &["review", "spec.md", "--tmux"]);
+    assert_eq!(tmux.status.code(), Some(2), "{tmux:?}");
+    assert!(String::from_utf8_lossy(&tmux.stderr).contains("tmux"));
+    let bad = run(dir.path(), &["status", "missing.md"]);
+    assert_eq!(bad.status.code(), Some(2), "{bad:?}");
+}
+
+#[test]
+fn install_writes_recipes() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = run(dir.path(), &["install", "claude", "--dir", "."]);
+    assert!(output.status.success(), "{output:?}");
+    let recipe = dir.path().join(".claude/commands/mdreview-review.md");
+    assert!(recipe.exists());
+    let text = std::fs::read_to_string(recipe).unwrap();
+    assert!(text.contains("mdreview request"));
+    assert!(text.contains("mdreview export"));
+
+    let output = run(dir.path(), &["install", "codex", "--dir", "."]);
+    assert!(output.status.success());
+    let text = std::fs::read_to_string(dir.path().join("AGENTS.md")).unwrap();
+    assert_eq!(text.matches("<!-- mdreview:start -->").count(), 1);
+}
+
+#[test]
+fn export_acquires_the_store_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let _ = seed_comment(&path, "Locked.");
+    let sidecar = sidecar_path(&path);
+    let _lock = StoreLock::acquire(&sidecar).unwrap();
+    let output = run(dir.path(), &["export", "spec.md"]);
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("locked"));
+}
+
+#[test]
+fn status_invalidates_approval_after_a_change() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let document = Document::load(&path).unwrap();
+    let sidecar = sidecar_path(&path);
+    let mut store = ReviewStore::new(path.display().to_string(), document.hash.clone());
+    store.approve();
+    store.save(&sidecar).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&path, "# Plan\n\nChanged.\n").unwrap();
+    let output = run(dir.path(), &["status", "spec.md", "--json"]);
+    assert!(output.status.success());
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["status"], "invalidated");
+    assert_eq!(value["approval_valid"], false);
+    assert_eq!(value["doc_changed"], true);
+}
+
+#[test]
+fn request_clears_a_previous_signoff() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let document = Document::load(&path).unwrap();
+    let sidecar = sidecar_path(&path);
+    let mut store = ReviewStore::new(path.display().to_string(), document.hash.clone());
+    store.approve();
+    store.save(&sidecar).unwrap();
+    assert!(run(dir.path(), &["request", "spec.md"]).status.success());
+    let wait = run(
+        dir.path(),
+        &["wait", "spec.md", "--timeout", "1", "--interval", "50"],
+    );
+    assert_eq!(wait.status.code(), Some(3), "{wait:?}");
+}
+
+#[test]
+fn custom_sidecar_commands_work() {
+    let dir = tempfile::tempdir().unwrap();
+    write_spec(dir.path());
+    let request = run(
+        dir.path(),
+        &["request", "spec.md", "--sidecar", "custom.review.json"],
+    );
+    assert!(request.status.success(), "{request:?}");
+    assert!(dir.path().join("custom.review.json").exists());
+    let status = run(
+        dir.path(),
+        &[
+            "status",
+            "spec.md",
+            "--sidecar",
+            "custom.review.json",
+            "--json",
+        ],
+    );
+    assert!(status.status.success(), "{status:?}");
+    let export = run(
+        dir.path(),
+        &["export", "spec.md", "--sidecar", "custom.review.json"],
+    );
+    assert_eq!(export.status.code(), Some(0), "{export:?}");
+}
+
+#[test]
+fn status_human_output() {
+    let dir = tempfile::tempdir().unwrap();
+    write_spec(dir.path());
+    let output = run(dir.path(), &["status", "spec.md"]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("Round: 1"));
+    assert!(text.contains("Status: pending"));
+}
+
+#[cfg(unix)]
+#[test]
+fn tmux_adapter_builds_popup_and_detach_commands() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let _id = seed_comment(&path, "Review this.");
+    let sidecar = sidecar_path(&path);
+    let mut store = ReviewStore::load(&sidecar).unwrap();
+    store.signoff_feedback();
+    store.save(&sidecar).unwrap();
+
+    let bin_dir = dir.path().join("bin");
+    std::fs::create_dir_all(&bin_dir).unwrap();
+    let tmux = bin_dir.join("tmux");
+    std::fs::write(
+        &tmux,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nexit ${TMUX_EXIT:-0}\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&tmux, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let log = dir.path().join("tmux.log");
+    let path_env = format!(
+        "{}:{}",
+        bin_dir.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let output = Command::new(bin())
+        .args(["review", "spec.md", "--tmux"])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(10), "{output:?}");
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Review this."));
+    let recorded = std::fs::read_to_string(&log).unwrap();
+    assert!(recorded.contains("display-popup"));
+    assert!(recorded.contains("__tui"));
+    assert!(recorded.contains("spec.md"));
+
+    let feedback_exit = Command::new(bin())
+        .args(["review", "spec.md", "--tmux"])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("TMUX_EXIT", "10")
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert_eq!(feedback_exit.status.code(), Some(10), "{feedback_exit:?}");
+
+    let abort_after_signoff = Command::new(bin())
+        .args(["review", "spec.md", "--tmux"])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("TMUX_EXIT", "1")
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert_eq!(
+        abort_after_signoff.status.code(),
+        Some(1),
+        "{abort_after_signoff:?}"
+    );
+    assert!(String::from_utf8_lossy(&abort_after_signoff.stdout).is_empty());
+
+    let abort_doc = dir.path().join("abort.md");
+    std::fs::write(&abort_doc, "# Abort\n").unwrap();
+    assert!(run(dir.path(), &["request", "abort.md"]).status.success());
+    let abort = Command::new(bin())
+        .args(["review", "abort.md", "--tmux"])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("TMUX_EXIT", "1")
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert_eq!(abort.status.code(), Some(1), "{abort:?}");
+    assert!(String::from_utf8_lossy(&abort.stdout).is_empty());
+
+    let custom = dir.path().join("custom.review.json");
+    std::fs::copy(&sidecar, &custom).unwrap();
+    std::fs::remove_file(&sidecar).unwrap();
+    let custom_output = Command::new(bin())
+        .args([
+            "review",
+            "spec.md",
+            "--tmux",
+            "--sidecar",
+            "custom.review.json",
+        ])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert_eq!(custom_output.status.code(), Some(10), "{custom_output:?}");
+    assert!(String::from_utf8_lossy(&custom_output.stdout).contains("Review this."));
+
+    let detach = Command::new(bin())
+        .args(["review", "spec.md", "--detach"])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert!(detach.status.success(), "{detach:?}");
+    assert!(String::from_utf8_lossy(&detach.stdout).contains("mdreview wait"));
+    let recorded = std::fs::read_to_string(&log).unwrap();
+    assert!(recorded.contains("new-window"));
+
+    let detach_custom = Command::new(bin())
+        .args([
+            "review",
+            "spec.md",
+            "--detach",
+            "--sidecar",
+            "custom.review.json",
+        ])
+        .current_dir(dir.path())
+        .env("TMUX", "fake")
+        .env("TMUX_LOG", &log)
+        .env("PATH", &path_env)
+        .output()
+        .unwrap();
+    assert!(detach_custom.status.success(), "{detach_custom:?}");
+    assert!(String::from_utf8_lossy(&detach_custom.stdout).contains("--sidecar"));
+}

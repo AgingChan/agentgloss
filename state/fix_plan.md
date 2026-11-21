@@ -417,6 +417,13 @@ Status: IN PROGRESS
   dimensions, stale-event deduplication, `changed`/`invalidated` status labels,
   remote image links, and the tmux evidence claim.
 
+### Final pass finding resolved
+
+- [x] **MODAL-1 (major):** `handle_mouse` now returns early while the editor,
+  confirmation, help, or search overlay is open. Footer and document clicks
+  can no longer replace the editor or move the hidden cursor. Regression test:
+  `tests/tui.rs::mouse_actions_do_not_bypass_an_open_editor`.
+
 ### Residual minor items (documented, not release-blocking)
 
 - Spec-mandated test matrix is broad but not exhaustive: a few clap/config,
@@ -433,7 +440,7 @@ Status: IN PROGRESS
 ### Final evidence
 
 - `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
-  `cargo test --all-features` (128 tests), and release-profile tests pass.
+  `cargo test --all-features` (129 tests), and release-profile tests pass.
 - Release binary: static-pie `x86_64-unknown-linux-musl`, `ldd` reports
   `statically linked`.
 - Real tmux PTY smoke: Markdown, outline/review panes, and a half-block Mermaid

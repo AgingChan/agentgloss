@@ -1,8 +1,8 @@
 # mdreview acceptance matrix
 
 Evidence was produced on 2026-11-21 with the static musl build and the full
-`cargo test --all-features` suite. Counts are 82 library, 15 CLI, 30 TUI, and
-1 performance test (128 total).
+`cargo test --all-features` suite. Counts are 82 library, 15 CLI, 31 TUI, and
+1 performance test (129 total).
 
 | Feature | Evidence |
 | --- | --- |
@@ -11,7 +11,7 @@ Evidence was produced on 2026-11-21 with the static musl build and the full
 | Rounds and approval | `review::tests::approval_invalidated_by_change`, `tests/cli.rs::request_after_edit_increments_round`, `two_round_end_to_end_flow`, `tests/tui.rs::file_change_reanchors_and_updates_round` |
 | Prompt/JSON export | `review::export::tests::comment_prompt_is_a_stable_golden`, `approved_prompt`, `approved_all_lists_archived_items_without_action_instructions`, `quotes_preserve_blank_lines_and_bodies_stay_verbatim`, `numbering_follows_anchor_order_not_insertion_order`, `empty_and_stale_only_exports_are_clear`, `json_filtering_and_exit_code`; CLI `request_status_export_resolve_flow`, `export_does_not_mutate_the_review_lifecycle` |
 | TUI at 80x24 / 120x40 | `tests/tui.rs::renders_at_80x24_and_wide`, `renders_at_100x30`, `narrow_terminal_shows_focused_panel_overlay`, `tiny_terminal_does_not_panic` |
-| Vim, standard, and mouse input | `tui::app::tests::navigation_and_focus`, `block_and_heading_motions`, `standard_mode_navigation_and_comment`; `tests/tui.rs::mouse_click_and_drag_select_lines`, `wheel_and_mouse_disabled`, `shift_tab_cycles_focus_backwards`, `footer` and panel click tests |
+| Vim, standard, and mouse input | `tui::app::tests::navigation_and_focus`, `block_and_heading_motions`, `standard_mode_navigation_and_comment`; `tests/tui.rs::mouse_click_and_drag_select_lines`, `wheel_and_mouse_disabled`, `shift_tab_cycles_focus_backwards`, `review_panel_and_footer_clicks_work`, `send_button_hits_the_send_action`, `mouse_actions_do_not_bypass_an_open_editor` |
 | Comments and suggestions | `tui::app::tests::comment_editor_creates_item`, `suggestion_editor_creates_item`, `edit_existing_comment`, `resolve_and_delete_items`, `draft_resumes_after_reopen`, `suggestion_original_has_no_trailing_newline_and_survives_edits`; `review::tests::reattach_refreshes_suggestion_original` |
 | Images | `media::tests::resolves_and_encodes_local_png`, `absolute_image_paths_and_raster_formats`, `decodes_webp_and_preserves_pixel_data`, `svg_raster_has_visible_pixels`, `enforces_file_and_pixel_limits`, `rejects_remote_and_missing_images`, `explicit_protocol_overrides_detection`, `derives_font_size_from_terminal_pixels_when_plausible`; `tests/tui.rs::image_media_is_prepared_and_cached`, `loaded_image_rows_do_not_contain_the_media_label`, `remote_image_renders_as_a_link_without_starting_a_worker` |
 | Mermaid | `media::tests::renders_a_simple_mermaid_diagram`, `renders_sequence_and_class_diagrams`, `failed_mermaid_render_is_cached`, `fake_mmdc_program_returns_svg`, `auto_engine_falls_back_to_mmdc_when_the_rust_parser_fails`; `tests/tui.rs::invalid_mermaid_renders_source_fallback`, `mermaid_source_engine_renders_source_without_starting_a_worker`, `enter_toggles_only_the_mermaid_block_source` |

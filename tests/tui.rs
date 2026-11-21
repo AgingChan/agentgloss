@@ -359,6 +359,37 @@ fn renders_at_100x30() {
 }
 
 #[test]
+fn mouse_actions_do_not_bypass_an_open_editor() {
+    let (mut app, _dir) = fixture("# A\n\nhello world\n");
+    app.set_cursor(2);
+    app.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+    assert!(app.is_editing());
+    app.set_editor_text("unfinished thought");
+    draw(&mut app, 120, 40);
+    let layout = app.layout.clone().unwrap();
+    for (rect, _) in layout.footer_buttons {
+        app.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: rect.x,
+            row: rect.y,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(app.editor_text().as_deref(), Some("unfinished thought"));
+        assert!(app.is_editing());
+        assert!(!app.is_confirming());
+    }
+    let cursor = app.cursor;
+    app.handle_mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: layout.doc.x + 5,
+        row: layout.doc.y + 1,
+        modifiers: KeyModifiers::NONE,
+    });
+    assert_eq!(app.cursor, cursor);
+    assert_eq!(app.editor_text().as_deref(), Some("unfinished thought"));
+}
+
+#[test]
 fn signoff_from_tui_exits_with_feedback() {
     let (mut app, _dir) = fixture("# Plan\n\nHello world.\n");
     app.set_cursor(1);

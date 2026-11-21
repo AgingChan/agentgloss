@@ -1372,6 +1372,11 @@ impl App {
         if !self.mouse_enabled {
             return;
         }
+        // Editor, confirmation, help, and search are modal; mouse input behind
+        // them would otherwise replace the editor or move the hidden cursor.
+        if self.editor.is_some() || self.confirm.is_some() || self.help || self.search.is_some() {
+            return;
+        }
         let Some(layout) = self.layout.clone() else {
             return;
         };

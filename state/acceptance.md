@@ -16,7 +16,7 @@ Evidence was produced on 2026-11-21 with the static musl build and the full
 | Images | `media::tests::resolves_and_encodes_local_png`, `absolute_image_paths_and_raster_formats`, `decodes_webp_and_preserves_pixel_data`, `svg_raster_has_visible_pixels`, `enforces_file_and_pixel_limits`, `rejects_remote_and_missing_images`, `explicit_protocol_overrides_detection`, `derives_font_size_from_terminal_pixels_when_plausible`; `tests/tui.rs::image_media_is_prepared_and_cached`, `loaded_image_rows_do_not_contain_the_media_label`, `remote_image_renders_as_a_link_without_starting_a_worker` |
 | Mermaid | `media::tests::renders_a_simple_mermaid_diagram`, `renders_sequence_and_class_diagrams`, `failed_mermaid_render_is_cached`, `fake_mmdc_program_returns_svg`, `auto_engine_falls_back_to_mmdc_when_the_rust_parser_fails`; `tests/tui.rs::invalid_mermaid_renders_source_fallback`, `mermaid_source_engine_renders_source_without_starting_a_worker`, `enter_toggles_only_the_mermaid_block_source` |
 | Agent handshake | `tests/cli.rs::request_status_export_resolve_flow`, `wait_returns_feedback_and_times_out`, `wait_returns_approval`, `two_round_end_to_end_flow`; recipe tests in `agent::tests` |
-| tmux adapter | `tests/cli.rs::tmux_adapter_builds_popup_and_detach_commands`: popup flags, feedback (21), approved (20), abort (22), popup failure (1/2), result-file fallback, custom sidecar, detached window; a direct `__tui` PTY run wrote the abort sentinel 22 to `MDREVIEW_RESULT_FILE` |
+| tmux adapter | `tests/cli.rs::tmux_adapter_builds_popup_and_detach_commands`: popup flags, feedback (21), approved (20), abort (22), popup failure (1/2), result-file fallback, custom sidecar, detached window; a direct `__tui` PTY run wrote abort sentinel 22 to `MDREVIEW_RESULT_FILE`; a real tmux 3.2a client with a pty attachment returned 21 and 20 from `display-popup -E` |
 | Static binary | `file` reports `ELF 64-bit LSB pie executable ... static-pie linked`; `ldd` reports `statically linked`; `--version` prints `mdreview 0.1.0` |
 
 ## Manual checks
@@ -31,10 +31,11 @@ Evidence was produced on 2026-11-21 with the static musl build and the full
 4. Reopen after editing — covered by reload/re-anchor tests; manual re-run is
    documented in `README.md`.
 5. Install recipes — covered by `agent::tests` and `tests/cli.rs::install_writes_recipes`.
-6. Real `mdreview review --tmux` popup — command construction and all sentinel
-   outcomes are covered with a fake `tmux`. `__tui` now writes its outcome to
-   `MDREVIEW_RESULT_FILE`, so the adapter no longer depends solely on tmux
-   propagating the popup status; a real popup run remains a manual desktop check.
+6. tmux popup — command construction and all sentinel outcomes are covered
+   with a fake `tmux`; a real tmux 3.2a client attached through a pty returned
+   status 21 for `display-popup -E "exit 21"` and 20 for `exit 20`, confirming
+   sentinel propagation. `__tui` also writes its outcome to
+   `MDREVIEW_RESULT_FILE` as a fallback.
 7. Kitty/WezTerm image pixels — not available in this headless WSL session.
    Protocol selection, encoding, and half-block fallback are tested; visual
    confirmation on Kitty/WezTerm remains a manual check for the user's desktop.

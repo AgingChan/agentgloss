@@ -408,8 +408,9 @@ Status: IN PROGRESS
 - [x] **QA-3:** `__tui` writes its sentinel (20/21/22) to
   `MDREVIEW_RESULT_FILE`; the tmux adapter reads that file and falls back to
   tmux's process status. A fake-tmux test covers the fallback, and a direct PTY
-  run of `__tui` wrote 22 on abort. The real `display-popup` path remains a
-  desktop manual check; `state/acceptance.md` now states that accurately.
+  run of `__tui` wrote 22 on abort. A real tmux 3.2a client attached through a
+  pty confirmed that `display-popup -E "exit 21"` and `exit 20` propagate
+  statuses 21 and 20. `state/acceptance.md` records this evidence.
 - [x] **TUI-1:** event-loop/terminal errors restore the terminal, autosave the
   review state, and return the aborted exit code (1) instead of error 2.
 - [x] **Spec/docs:** amended docs for marker-block preservation, placeholder

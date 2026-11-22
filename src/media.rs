@@ -852,4 +852,60 @@ mod tests {
         let plain = detect_protocol_from(|_| None);
         assert!(matches!(plain, ProtocolType::Halfblocks));
     }
+
+    #[test]
+    #[ignore = "diagnostic; run with --ignored --nocapture"]
+    fn diag_mermaid_rasters() {
+        let out = Path::new("/tmp/agentgloss-mermaid");
+        std::fs::create_dir_all(out).unwrap();
+        let fixture_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mermaid");
+        let picker = picker_for(ProtocolType::Halfblocks);
+        let font = picker.font_size();
+        let mut paths: Vec<_> = std::fs::read_dir(fixture_dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "mmd"))
+            .collect();
+        paths.sort();
+        for path in paths {
+            let source = std::fs::read_to_string(&path).unwrap();
+            let stem = path.file_stem().unwrap().to_string_lossy().to_string();
+            match render_mermaid_svg(MermaidEngine::Rust, Theme::Dark, &source, None) {
+                Ok(svg) => {
+                    std::fs::write(out.join(format!("{stem}.svg")), &svg).unwrap();
+                    let options = usvg::Options {
+                        fontdb: font_database(),
+                        ..usvg::Options::default()
+                    };
+                    let svg_size = usvg::Tree::from_str(&svg, &options)
+                        .ok()
+                        .map(|tree| tree.size());
+                    match rasterize_svg(&picker, &svg, (80, 10)) {
+                        Ok(image) => {
+                            let (width, height) = (image.width(), image.height());
+                            let rgba = image.to_rgba8();
+                            let mut min = (u32::MAX, u32::MAX);
+                            let mut max = (0u32, 0u32);
+                            let mut ink = 0u32;
+                            for (x, y, pixel) in rgba.enumerate_pixels() {
+                                if pixel[3] > 0 {
+                                    ink += 1;
+                                    min = (min.0.min(x), min.1.min(y));
+                                    max = (max.0.max(x), max.1.max(y));
+                                }
+                            }
+                            image.save(out.join(format!("{stem}.png"))).unwrap();
+                            println!(
+                                "{stem}: svg={:?} raster={width}x{height} ink={ink} bbox={min:?}..{max:?}",
+                                svg_size.map(|size| (size.width(), size.height()))
+                            );
+                        }
+                        Err(error) => println!("{stem}: RASTER ERROR {error:#}"),
+                    }
+                }
+                Err(error) => println!("{stem}: MERMAID ERROR {error:#}"),
+            }
+        }
+        println!("picker font={}x{}", font.width, font.height);
+    }
 }

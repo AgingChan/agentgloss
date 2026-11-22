@@ -1,0 +1,14 @@
+sequenceDiagram
+  participant A as Author
+  participant R as Reviewer
+  participant T as Tool
+  A->>T: 1. draft
+  R->>T: 2. comment
+  A->>T: 3. revise
+  R->>T: 4. suggest
+  A->>T: 5. accept
+  R->>T: 6. resolve
+  T-->>A: 7. export
+  A->>T: 8. apply
+  R->>T: 9. verify
+  T-->>R: 10. signoff

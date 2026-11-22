@@ -1,0 +1,11 @@
+flowchart TD
+  A[Start] --> B[Parse]
+  B --> C{Valid?}
+  C -->|yes| D[Layout]
+  C -->|no| E[Report error]
+  D --> F[Render]
+  F --> G[Review]
+  G --> H{Approved?}
+  H -->|yes| I[Export]
+  H -->|no| J[Revise]
+  J --> B

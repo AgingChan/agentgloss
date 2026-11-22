@@ -244,7 +244,7 @@ fn layout_table(
                     push_str(
                         &mut line_cells,
                         SEPARATOR,
-                        InlineStyle::Plain,
+                        InlineStyle::TableSeparator,
                         block.source.start,
                     );
                 }

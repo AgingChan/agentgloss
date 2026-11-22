@@ -19,6 +19,7 @@ pub enum InlineStyle {
     Link,
     ImageAlt,
     TaskMarker,
+    TableSeparator,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

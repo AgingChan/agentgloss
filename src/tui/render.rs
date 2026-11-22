@@ -218,6 +218,11 @@ fn render_line(app: &App, index: usize) -> Line<'static> {
         {
             style = style.fg(Color::Cyan).add_modifier(Modifier::BOLD);
         }
+        if matches!(line.kind, VisualKind::TableHeader)
+            && !matches!(span.style, InlineStyle::TableSeparator)
+        {
+            style = style.fg(Color::Cyan).add_modifier(Modifier::BOLD);
+        }
         if matches!(line.kind, VisualKind::Media(_)) {
             style = style.fg(Color::DarkGray).add_modifier(Modifier::ITALIC);
         }
@@ -254,6 +259,7 @@ fn inline_style(style: &InlineStyle) -> Style {
             .fg(Color::Blue)
             .add_modifier(Modifier::UNDERLINED),
         InlineStyle::TaskMarker => Style::default().fg(Color::Green),
+        InlineStyle::TableSeparator => Style::default().fg(Color::DarkGray),
     }
 }
 

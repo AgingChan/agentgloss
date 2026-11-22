@@ -7,6 +7,7 @@ use mdreview::tui::app::{App, Focus};
 use mdreview::tui::render;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use ratatui::style::{Color, Modifier};
 use std::path::Path;
 
 fn options(dir: &Path) -> TuiOptions {
@@ -612,4 +613,33 @@ fn enter_toggles_only_the_mermaid_block_source() {
     app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
     let text = draw(&mut app, 100, 30);
     assert!(!text.contains("Mermaid source"), "{text}");
+}
+
+#[test]
+fn table_header_is_bold_cyan_and_separators_are_dim() {
+    let (mut app, _dir) = fixture("# Spec\n\n| Action | Vim |\n| --- | --- |\n| Move | j |\n");
+    let backend = TestBackend::new(80, 24);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal
+        .draw(|frame| render::draw(frame, &mut app))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let mut header = None;
+    for y in 0..buffer.area.height {
+        let row: String = (0..buffer.area.width)
+            .map(|x| buffer[(x, y)].symbol())
+            .collect();
+        if row.contains("Action") {
+            header = Some((row, y));
+            break;
+        }
+    }
+    let (row, y) = header.expect("table header row");
+    assert!(!row.contains("---"), "{row:?}");
+    let x = row.find("Action").unwrap() as u16;
+    let cell = &buffer[(x, y)];
+    assert_eq!(cell.fg, Color::Cyan);
+    assert!(cell.modifier.contains(Modifier::BOLD));
+    let bar_x = row.find('│').expect("separator") as u16;
+    assert_eq!(buffer[(bar_x, y)].fg, Color::DarkGray);
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Media blocks now fit the document page: Mermaid diagrams and images are scaled to the page width, capped at the viewport height, sized by aspect ratio instead of fixed rows, and centered. Partially scrolled images use sliced protocols.
+
 ## 0.1.0 — 2026-11-21
 
 Initial MVP:

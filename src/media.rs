@@ -1,6 +1,7 @@
 //! Image and Mermaid media pipeline.
 
 use crate::config::{MermaidEngine, Protocol as ProtocolChoice, Theme};
+use crate::document::{Block, BlockKind};
 use crate::tui::TuiOptions;
 use anyhow::Context;
 use image::{DynamicImage, ImageFormat};
@@ -8,7 +9,7 @@ use ratatui::layout::Size;
 use ratatui_image::FontSize;
 use ratatui_image::Resize;
 use ratatui_image::picker::{Picker, ProtocolType};
-use ratatui_image::protocol::Protocol;
+use ratatui_image::sliced::SlicedProtocol;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -27,7 +28,7 @@ const CACHE_VERSION: u32 = 1;
 
 struct MediaResult {
     key: MediaKey,
-    result: Result<Protocol, String>,
+    result: Result<SlicedProtocol, String>,
 }
 
 pub struct MediaManager {
@@ -35,7 +36,7 @@ pub struct MediaManager {
     engine: MermaidEngine,
     theme: Theme,
     cache_dir: PathBuf,
-    protocols: HashMap<MediaKey, Protocol>,
+    protocols: HashMap<MediaKey, SlicedProtocol>,
     errors: HashMap<MediaKey, String>,
     pending: HashSet<MediaKey>,
     hash_cache: HashMap<PathBuf, (SystemTime, u64, String)>,
@@ -79,7 +80,51 @@ impl MediaManager {
         format!("{:?}", self.picker.protocol_type())
     }
 
-    pub fn get(&self, key: &str) -> Option<&Protocol> {
+    pub fn font_size(&self) -> FontSize {
+        self.picker.font_size()
+    }
+
+    /// Aspect ratio in terminal cells (columns / rows) for a rendered media
+    /// block, or `None` when the dimensions cannot be determined.
+    pub fn aspect_for_block(&self, block: &Block, document_path: &Path) -> Option<f64> {
+        match &block.kind {
+            BlockKind::Mermaid { source } => self.mermaid_aspect(source),
+            BlockKind::Image { src, .. } => self.image_aspect(document_path, src),
+            _ => None,
+        }
+    }
+
+    pub fn mermaid_aspect(&self, source: &str) -> Option<f64> {
+        let svg = mermaid_rs_renderer::render(source).ok()?;
+        let options = usvg::Options {
+            fontdb: font_database(),
+            ..usvg::Options::default()
+        };
+        let tree = usvg::Tree::from_str(&svg, &options).ok()?;
+        let size = tree.size();
+        cell_aspect(size.width(), size.height(), self.picker.font_size())
+    }
+
+    pub fn image_aspect(&self, document_path: &Path, src: &str) -> Option<f64> {
+        let path = resolve_image_path(document_path, src).ok()?;
+        let (width, height) = if is_svg(&path) {
+            let svg = std::fs::read_to_string(&path).ok()?;
+            let options = usvg::Options {
+                fontdb: font_database(),
+                ..usvg::Options::default()
+            };
+            let tree = usvg::Tree::from_str(&svg, &options).ok()?;
+            let size = tree.size();
+            (size.width(), size.height())
+        } else {
+            let reader = image::ImageReader::open(&path).ok()?;
+            let (width, height) = reader.into_dimensions().ok()?;
+            (width as f32, height as f32)
+        };
+        cell_aspect(width, height, self.picker.font_size())
+    }
+
+    pub fn get(&self, key: &str) -> Option<&SlicedProtocol> {
         self.protocols.get(key)
     }
 
@@ -242,11 +287,18 @@ impl MediaManager {
     }
 }
 
-fn encode(picker: &Picker, image: DynamicImage, target: (u16, u16)) -> anyhow::Result<Protocol> {
-    let size = Size::new(target.0, target.1);
-    picker
-        .new_protocol(image, size, Resize::Fit(None))
-        .context("encode media for terminal")
+fn encode(
+    picker: &Picker,
+    image: DynamicImage,
+    target: (u16, u16),
+) -> anyhow::Result<SlicedProtocol> {
+    SlicedProtocol::new_with_resize(
+        picker,
+        image,
+        Size::new(target.0, target.1),
+        Resize::Fit(None),
+    )
+    .context("encode media for terminal")
 }
 
 fn load_image(
@@ -502,6 +554,15 @@ fn is_svg(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
         .is_some_and(|ext| ext.eq_ignore_ascii_case("svg"))
+}
+
+fn cell_aspect(width_px: f32, height_px: f32, font: FontSize) -> Option<f64> {
+    if width_px <= 0.0 || height_px <= 0.0 || font.width == 0 || font.height == 0 {
+        return None;
+    }
+    let columns = width_px / font.width as f32;
+    let rows = height_px / font.height as f32;
+    (rows > 0.0).then(|| (columns / rows) as f64)
 }
 
 fn check_dimensions(image: &DynamicImage) -> anyhow::Result<()> {
@@ -851,6 +912,30 @@ mod tests {
         assert!(matches!(foot, ProtocolType::Sixel));
         let plain = detect_protocol_from(|_| None);
         assert!(matches!(plain, ProtocolType::Halfblocks));
+    }
+
+    #[test]
+    fn mermaid_aspect_is_positive() {
+        let dir = tempfile::tempdir().unwrap();
+        let media = MediaManager::new(&options(dir.path()));
+        let aspect = media
+            .mermaid_aspect("flowchart LR\nA-->B\n")
+            .expect("mermaid aspect");
+        assert!(aspect > 0.0, "{aspect}");
+    }
+
+    #[test]
+    fn image_aspect_uses_pixels_and_cell_size() {
+        let dir = tempfile::tempdir().unwrap();
+        tiny_png(&dir.path().join("red.png"));
+        let media = MediaManager::new(&options(dir.path()));
+        let font = media.font_size();
+        let document_path = dir.path().join("spec.md");
+        let aspect = media
+            .image_aspect(&document_path, "red.png")
+            .expect("image aspect");
+        let expected = (2.0 / font.width as f64) / (2.0 / font.height as f64);
+        assert!((aspect - expected).abs() < 1e-6, "{aspect} vs {expected}");
     }
 
     #[test]

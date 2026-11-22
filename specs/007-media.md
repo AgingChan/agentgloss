@@ -6,6 +6,7 @@
 - Supported: PNG, JPEG, WebP, BMP, and the first frame of GIF. SVG is rasterized with `resvg`/`usvg`.
 - Limits: 50 MB per file, 10,000 px per side, 40 million pixels; oversized inputs show a placeholder and report the limit in the status line (dimensions when they are known).
 - Scale to the available content width, preserve aspect ratio. Alt text is the caption; the source path is shown in the placeholder/status.
+- Media blocks are sized to the document page: the block reserves the image's aspect-derived rows at the page width, capped at the viewport height, and the image is centered. Unknown dimensions fall back to fixed placeholder rows. Partially scrolled media is rendered with a sliced protocol so the visible portion stays correct.
 - `image` decodes raster formats; `fontdb` loads system fonts once for SVG text. If no fonts are available, SVG text may be missing.
 
 ## Terminal protocols

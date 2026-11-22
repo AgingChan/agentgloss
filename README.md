@@ -10,7 +10,7 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
 MVP implemented and tested:
 
-- 98 library tests, 15 CLI integration tests, 32 TUI integration tests, 1 performance test (146 total)
+- 103 library tests, 15 CLI integration tests, 33 TUI integration tests, 1 performance test (152 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary

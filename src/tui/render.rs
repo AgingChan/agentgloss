@@ -9,7 +9,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
-use ratatui_image::Image;
+use ratatui_image::sliced::{SignedPosition, SlicedImage};
 
 pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     let area = frame.area();
@@ -40,8 +40,10 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     };
     let gutter = if app.source_mode() { 8 } else { 2 };
     let content_width = doc_area.width.saturating_sub(gutter).max(1);
-    if app.layout_width() != content_width as usize {
-        app.rebuild(content_width as usize);
+    if app.layout_width() != content_width as usize
+        || app.layout_height() != doc_area.height as usize
+    {
+        app.rebuild_with_height(content_width as usize, doc_area.height as usize);
     }
     app.set_viewport(doc_area.height as usize);
     app.prepare_media(doc_area);
@@ -266,6 +268,8 @@ fn inline_style(style: &InlineStyle) -> Style {
 fn render_media(frame: &mut Frame<'_>, app: &App, area: Rect) {
     let start = app.scroll;
     let end = (start + area.height as usize).min(app.lines.len());
+    let media_width = app.layout_width().min(area.width as usize) as u16;
+    let media_area = Rect::new(area.x, area.y, media_width, area.height);
     let mut index = start;
     while index < end {
         if !app.lines[index].is_media() {
@@ -273,45 +277,76 @@ fn render_media(frame: &mut Frame<'_>, app: &App, area: Rect) {
             continue;
         }
         let block = app.lines[index].block;
-        let group_start = index;
-        let mut group_end = index;
-        while group_end < end
-            && app.lines[group_end].is_media()
-            && app.lines[group_end].block == block
+        let mut full_start = index;
+        while full_start > 0
+            && app.lines[full_start - 1].is_media()
+            && app.lines[full_start - 1].block == block
         {
-            group_end += 1;
+            full_start -= 1;
         }
-        let rect = Rect::new(
-            area.x,
-            area.y + (group_start.saturating_sub(start)) as u16,
-            area.width,
-            (group_end - group_start) as u16,
-        );
+        let mut full_end = index;
+        while full_end < app.lines.len()
+            && app.lines[full_end].is_media()
+            && app.lines[full_end].block == block
+        {
+            full_end += 1;
+        }
+        let full_rows = full_end - full_start;
         let mermaid_kind = app.document.blocks.get(block).map(|block| &block.kind);
         let source_mode = app.mermaid_source.contains(&block)
             || (app.options.mermaid_engine == crate::config::MermaidEngine::Source
                 && matches!(mermaid_kind, Some(BlockKind::Mermaid { .. })));
         if source_mode {
-            if let Some(BlockKind::Mermaid { source }) = mermaid_kind {
+            if let Some(BlockKind::Mermaid { source }) = mermaid_kind
+                && let Some(rect) = visible_media_rect(media_area, full_start, full_end, start, end)
+            {
                 render_mermaid_source(frame, source, rect, "Mermaid source");
             }
-            index = group_end;
+            index = full_end;
             continue;
         }
         if let Some(key) = app.media_key(block) {
             if let Some(protocol) = app.media.get(key) {
-                if rect.height > 0 && rect.width > 1 {
-                    frame.render_widget(Image::new(protocol), rect);
-                }
+                let cols = match app.media_aspect(block) {
+                    Some(aspect) => {
+                        ((full_rows as f64 * aspect).round() as u16).clamp(1, media_area.width)
+                    }
+                    None => media_area.width,
+                };
+                let x = ((media_area.width - cols) / 2) as i16;
+                let y = full_start as i16 - start as i16;
+                frame.render_widget(
+                    SlicedImage::new(protocol, SignedPosition::from((x, y))),
+                    media_area,
+                );
             } else if app.media.error(key).is_some()
-                && let Some(crate::document::BlockKind::Mermaid { source }) =
-                    app.document.blocks.get(block).map(|block| &block.kind)
+                && let Some(BlockKind::Mermaid { source }) = mermaid_kind
+                && let Some(rect) = visible_media_rect(media_area, full_start, full_end, start, end)
             {
                 render_mermaid_source(frame, source, rect, "diagram unavailable — source");
             }
         }
-        index = group_end;
+        index = full_end;
     }
+}
+
+fn visible_media_rect(
+    area: Rect,
+    full_start: usize,
+    full_end: usize,
+    start: usize,
+    end: usize,
+) -> Option<Rect> {
+    let top = full_start.saturating_sub(start);
+    let bottom = full_end.min(end).saturating_sub(start);
+    (bottom > top).then(|| {
+        Rect::new(
+            area.x,
+            area.y + top as u16,
+            area.width,
+            (bottom - top) as u16,
+        )
+    })
 }
 
 fn render_mermaid_source(frame: &mut Frame<'_>, source: &str, rect: Rect, title: &str) {

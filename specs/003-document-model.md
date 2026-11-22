@@ -23,6 +23,7 @@ pub struct Block {
     pub heading_path: Vec<String>,
     pub depth: usize,           // list/quote nesting
     pub inlines: Vec<Inline>,
+    pub table: Option<Table>,   // structured GFM table data
 }
 
 pub enum BlockKind {
@@ -37,6 +38,19 @@ pub struct Inline {
     pub style: InlineStyle,     // plain, emphasis, strong, code, link, image-alt
     pub source: Range<usize>,
 }
+
+pub struct Table {
+    pub header: Vec<TableCell>,
+    pub rows: Vec<Vec<TableCell>>,
+    pub alignments: Vec<ColumnAlign>,
+}
+
+pub struct TableCell {
+    pub inlines: Vec<Inline>,
+    pub source: Range<usize>,
+}
+
+pub enum ColumnAlign { None, Left, Center, Right }
 ```
 
 ## Parsing rules
@@ -47,7 +61,8 @@ pub struct Inline {
 - A fenced code block with language `mermaid` becomes `BlockKind::Mermaid`; its source is the code content excluding the fences.
 - A paragraph containing only an image becomes `BlockKind::Image`; an image inside mixed text remains an inline and is not previewed.
 - Nested lists and blockquotes increment `depth`; each list item is a separate block.
-- Tables are one block; cells are inlines with source ranges. Tables may render as aligned text.
+- Tables are one block. The block retains header and body rows, each cell as styled inlines with a source range, plus per-column alignment.
+- Rendered tables use aligned columns and a styled header row; cell text wraps within its column, and a table that cannot fit minimum column widths falls back to flattened pipe-separated text.
 - HTML is kept as raw text and rendered literally.
 - Rule (`---`) is a block with no inlines.
 - Empty or whitespace-only blocks are skipped.
@@ -61,6 +76,7 @@ pub struct Inline {
   - Wrapped continuation lines keep the source range of the wrapped segment.
   - Long unbreakable tokens are split at grapheme boundaries.
   - Tabs expand to four spaces.
+- Table lines carry the byte range of the cells they display; header lines are marked so the renderer can style them.
 - Media blocks reserve a rectangle in layout; the text pass never writes into it.
 
 ## Acceptance

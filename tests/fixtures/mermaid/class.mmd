@@ -1,0 +1,14 @@
+classDiagram
+  class Document {
+    +source
+    +blocks
+  }
+  class Block {
+    +kind
+    +source
+  }
+  class Review {
+    +items
+  }
+  Document --> Block
+  Review --> Block

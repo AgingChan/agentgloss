@@ -77,7 +77,7 @@ pub enum ColumnAlign { None, Left, Center, Right }
   - Long unbreakable tokens are split at grapheme boundaries.
   - Tabs expand to four spaces.
 - Table lines carry the byte range of the cells they display; header lines are marked so the renderer can style them.
-- Media blocks reserve a rectangle in layout; the text pass never writes into it.
+- Media blocks reserve a rectangle in layout; the rectangle's rows follow the media aspect ratio at the current width, capped at the viewport height (spec 007).
 
 ## Acceptance
 

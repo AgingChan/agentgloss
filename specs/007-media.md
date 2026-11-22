@@ -6,15 +6,17 @@
 - Supported: PNG, JPEG, WebP, BMP, and the first frame of GIF. SVG is rasterized with `resvg`/`usvg`.
 - Limits: 50 MB per file, 10,000 px per side, 40 million pixels; oversized inputs show a placeholder and report the limit in the status line (dimensions when they are known).
 - Scale to the available content width, preserve aspect ratio. Alt text is the caption; the source path is shown in the placeholder/status.
+- Media blocks are sized to the document page: the block reserves the image's aspect-derived rows at the page width, capped at the viewport height, and the image is centered. Unknown dimensions fall back to fixed placeholder rows. Partially scrolled media is rendered with a sliced protocol so the visible portion stays correct.
 - `image` decodes raster formats; `fontdb` loads system fonts once for SVG text. If no fonts are available, SVG text may be missing.
 
 ## Terminal protocols
 
-- Detect from the environment (Kitty, Ghostty, WezTerm/iTerm2, Windows Terminal/foot/mlterm, otherwise half-blocks); an explicit `--protocol` overrides. Do not query stdio interactively: its reader thread can steal TUI keyboard input.
+- Detect from the environment (Kitty, Ghostty, WezTerm/iTerm2/Warp, Windows Terminal/foot/mlterm, otherwise half-blocks); an explicit `--protocol` overrides. Do not query stdio interactively: its reader thread can steal TUI keyboard input.
 - Override with `--protocol auto|kitty|iterm2|sixel|halfblocks` or config.
 - Half-blocks are the universal fallback and are always available. The `chafa-dyn` feature is disabled; no libchafa dependency.
-- Kitty/Ghostty/WezTerm: sharp graphics. Terax/xterm.js: half-blocks. tmux: `allow-passthrough` is required beyond half-blocks; tmux 3.2a lacks Sixel. WSL2/Windows Terminal: Sixel only when the terminal build supports it.
+- Kitty/Ghostty/WezTerm/Warp: sharp graphics (Warp via iTerm2 inline images; it does not support Sixel). Terax 0.9: half-blocks; its Ghostty core parses Kitty placements but does not render them yet. tmux: `allow-passthrough` is required beyond half-blocks; tmux 3.2a lacks Sixel, so auto-detection falls back from Sixel to half-blocks inside tmux. WSL2/Windows Terminal: Sixel only when the terminal build supports it.
 - Derive the terminal cell pixel size from `TIOCGWINSZ` (`window_size`) when columns, rows, and pixel dimensions are present and plausible; otherwise fall back to 10x20. Never query stdio for font size, for the same input-stealing reason.
+- `AGENTGLOSS_CELL_SIZE=WxH` overrides the cell pixel size (for high-DPI terminals or Retina displays that report points); `AGENTGLOSS_RENDER_SCALE=1..4` multiplies it before rasterization/encoding. The layout aspect and rasterization use the same cell size.
 - On resize, invalidate all protocol encodings and force a full repaint.
 - Never draw text over an image rectangle, including blank cells. Clear stale placements when scrolling or resizing.
 

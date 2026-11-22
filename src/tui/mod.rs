@@ -35,7 +35,6 @@ pub fn run(
         app.status = status;
     }
     let mut session = TerminalSession::new(options.mouse)?;
-    app.media.configure(options);
     let result = event_loop(&mut session.terminal, &mut app);
     drop(session);
     *store = app.store;

@@ -2,7 +2,9 @@
 
 pub mod layout;
 
-pub use layout::{MediaKind, StyledSpan, VisualKind, VisualLine, layout};
+pub use layout::{
+    MediaKind, StyledSpan, VisualKind, VisualLine, layout, layout_with_media, media_cell_size,
+};
 
 use pulldown_cmark::{Alignment, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use sha2::{Digest, Sha256};

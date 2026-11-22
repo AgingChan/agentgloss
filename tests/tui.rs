@@ -1,5 +1,5 @@
 use agentgloss::config::{Keys, MermaidEngine, Protocol, Theme};
-use agentgloss::document::Document;
+use agentgloss::document::{BlockKind, Document};
 use agentgloss::review::{Anchor, ItemStatus, ReviewStore, sidecar_path};
 use agentgloss::tui::TuiOptions;
 use agentgloss::tui::app::{App, Focus};
@@ -569,6 +569,57 @@ fn selection_expands_to_whole_source_line() {
     let anchor = Anchor::from_range(&app.document, range).unwrap();
     assert!(!anchor.quote.ends_with('\n'));
     assert!(anchor.quote.contains("one two"));
+}
+
+#[test]
+fn mermaid_blocks_fit_the_page_instead_of_fixed_rows() {
+    let (mut app, _dir) = fixture(
+        "# Diagram\n\n```mermaid\nflowchart LR\n  A[Collect requirements] --> B[Draft architecture]\n  B --> C[Write implementation plan]\n  C --> D[Implement]\n  D --> E[Test]\n  E --> F[Release]\n```\n\nAfter.\n",
+    );
+    draw(&mut app, 80, 24);
+    let block = app
+        .document
+        .blocks
+        .iter()
+        .find(|block| matches!(block.kind, BlockKind::Mermaid { .. }))
+        .expect("mermaid block")
+        .index;
+    let aspect = app.media_aspect(block).expect("mermaid aspect");
+    let rows = app
+        .lines
+        .iter()
+        .filter(|line| line.block == block && line.is_media())
+        .count();
+    let expected = ((app.layout_width() as f64 / aspect).ceil() as usize)
+        .min(app.layout_height())
+        .max(1);
+    assert_eq!(rows, expected, "aspect={aspect}");
+    assert!(
+        rows < 10,
+        "wide diagram should use fewer than the old 10 rows, got {rows}"
+    );
+
+    let tall = "# Diagram\n\n```mermaid\nflowchart TD\nA-->B\nB-->C\nC-->D\nD-->E\nE-->F\nF-->G\nG-->H\nH-->I\nI-->J\n```\n\nAfter.\n";
+    let (mut app, _dir) = fixture(tall);
+    draw(&mut app, 80, 24);
+    let block = app
+        .document
+        .blocks
+        .iter()
+        .find(|block| matches!(block.kind, BlockKind::Mermaid { .. }))
+        .expect("mermaid block")
+        .index;
+    let aspect = app.media_aspect(block).expect("mermaid aspect");
+    let rows = app
+        .lines
+        .iter()
+        .filter(|line| line.block == block && line.is_media())
+        .count();
+    assert_eq!(
+        rows,
+        app.layout_height(),
+        "tall diagram should fill the page height (aspect={aspect})"
+    );
 }
 
 #[test]

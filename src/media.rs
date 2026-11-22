@@ -1,6 +1,7 @@
 //! Image and Mermaid media pipeline.
 
 use crate::config::{MermaidEngine, Protocol as ProtocolChoice, Theme};
+use crate::document::{Block, BlockKind};
 use crate::tui::TuiOptions;
 use anyhow::Context;
 use image::{DynamicImage, ImageFormat};
@@ -8,7 +9,7 @@ use ratatui::layout::Size;
 use ratatui_image::FontSize;
 use ratatui_image::Resize;
 use ratatui_image::picker::{Picker, ProtocolType};
-use ratatui_image::protocol::Protocol;
+use ratatui_image::sliced::SlicedProtocol;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -27,7 +28,7 @@ const CACHE_VERSION: u32 = 1;
 
 struct MediaResult {
     key: MediaKey,
-    result: Result<Protocol, String>,
+    result: Result<SlicedProtocol, String>,
 }
 
 pub struct MediaManager {
@@ -35,7 +36,7 @@ pub struct MediaManager {
     engine: MermaidEngine,
     theme: Theme,
     cache_dir: PathBuf,
-    protocols: HashMap<MediaKey, Protocol>,
+    protocols: HashMap<MediaKey, SlicedProtocol>,
     errors: HashMap<MediaKey, String>,
     pending: HashSet<MediaKey>,
     hash_cache: HashMap<PathBuf, (SystemTime, u64, String)>,
@@ -79,7 +80,51 @@ impl MediaManager {
         format!("{:?}", self.picker.protocol_type())
     }
 
-    pub fn get(&self, key: &str) -> Option<&Protocol> {
+    pub fn font_size(&self) -> FontSize {
+        self.picker.font_size()
+    }
+
+    /// Aspect ratio in terminal cells (columns / rows) for a rendered media
+    /// block, or `None` when the dimensions cannot be determined.
+    pub fn aspect_for_block(&self, block: &Block, document_path: &Path) -> Option<f64> {
+        match &block.kind {
+            BlockKind::Mermaid { source } => self.mermaid_aspect(source),
+            BlockKind::Image { src, .. } => self.image_aspect(document_path, src),
+            _ => None,
+        }
+    }
+
+    pub fn mermaid_aspect(&self, source: &str) -> Option<f64> {
+        let svg = mermaid_rs_renderer::render(source).ok()?;
+        let options = usvg::Options {
+            fontdb: font_database(),
+            ..usvg::Options::default()
+        };
+        let tree = usvg::Tree::from_str(&svg, &options).ok()?;
+        let size = tree.size();
+        cell_aspect(size.width(), size.height(), self.picker.font_size())
+    }
+
+    pub fn image_aspect(&self, document_path: &Path, src: &str) -> Option<f64> {
+        let path = resolve_image_path(document_path, src).ok()?;
+        let (width, height) = if is_svg(&path) {
+            let svg = std::fs::read_to_string(&path).ok()?;
+            let options = usvg::Options {
+                fontdb: font_database(),
+                ..usvg::Options::default()
+            };
+            let tree = usvg::Tree::from_str(&svg, &options).ok()?;
+            let size = tree.size();
+            (size.width(), size.height())
+        } else {
+            let reader = image::ImageReader::open(&path).ok()?;
+            let (width, height) = reader.into_dimensions().ok()?;
+            (width as f32, height as f32)
+        };
+        cell_aspect(width, height, self.picker.font_size())
+    }
+
+    pub fn get(&self, key: &str) -> Option<&SlicedProtocol> {
         self.protocols.get(key)
     }
 
@@ -242,11 +287,18 @@ impl MediaManager {
     }
 }
 
-fn encode(picker: &Picker, image: DynamicImage, target: (u16, u16)) -> anyhow::Result<Protocol> {
-    let size = Size::new(target.0, target.1);
-    picker
-        .new_protocol(image, size, Resize::Fit(None))
-        .context("encode media for terminal")
+fn encode(
+    picker: &Picker,
+    image: DynamicImage,
+    target: (u16, u16),
+) -> anyhow::Result<SlicedProtocol> {
+    SlicedProtocol::new_with_resize(
+        picker,
+        image,
+        Size::new(target.0, target.1),
+        Resize::Fit(None),
+    )
+    .context("encode media for terminal")
 }
 
 fn load_image(
@@ -418,11 +470,32 @@ fn font_database() -> Arc<fontdb::Database> {
 }
 
 fn picker_for(protocol: ProtocolType) -> Picker {
-    let font = terminal_font_size().unwrap_or_else(|| FontSize::new(10, 20));
+    let font = configured_font_size_from(std::env::var("AGENTGLOSS_CELL_SIZE").ok().as_deref())
+        .or_else(terminal_font_size)
+        .unwrap_or_else(|| FontSize::new(10, 20));
+    let scale = render_scale_from(std::env::var("AGENTGLOSS_RENDER_SCALE").ok().as_deref());
+    let font = FontSize::new(
+        font.width.saturating_mul(scale),
+        font.height.saturating_mul(scale),
+    );
     #[allow(deprecated)]
     let mut picker = Picker::from_fontsize(font);
     picker.set_protocol_type(protocol);
     picker
+}
+
+fn configured_font_size_from(value: Option<&str>) -> Option<FontSize> {
+    let (width, height) = value?.split_once('x')?;
+    let width: u16 = width.parse().ok()?;
+    let height: u16 = height.parse().ok()?;
+    (width > 0 && height > 0).then(|| FontSize::new(width, height))
+}
+
+fn render_scale_from(value: Option<&str>) -> u16 {
+    value
+        .and_then(|value| value.parse().ok())
+        .filter(|scale| (1..=4).contains(scale))
+        .unwrap_or(1)
 }
 
 fn terminal_font_size() -> Option<FontSize> {
@@ -462,7 +535,9 @@ fn detect_protocol_from(get: impl Fn(&str) -> Option<String>) -> ProtocolType {
     }
     if get("WEZTERM_EXECUTABLE").is_some()
         || get("TERM_PROGRAM").is_some_and(|value| {
-            value.eq_ignore_ascii_case("wezterm") || value.eq_ignore_ascii_case("iterm.app")
+            value.eq_ignore_ascii_case("wezterm")
+                || value.eq_ignore_ascii_case("iterm.app")
+                || value.eq_ignore_ascii_case("warpterminal")
         })
     {
         return ProtocolType::Iterm2;
@@ -472,7 +547,13 @@ fn detect_protocol_from(get: impl Fn(&str) -> Option<String>) -> ProtocolType {
             value.contains("sixel") || value.contains("foot") || value.contains("mlterm")
         })
     {
-        return ProtocolType::Sixel;
+        // tmux 3.2a cannot display Sixel even when the outer terminal supports
+        // it; half-blocks always work.
+        return if get("TMUX").is_some() {
+            ProtocolType::Halfblocks
+        } else {
+            ProtocolType::Sixel
+        };
     }
     ProtocolType::Halfblocks
 }
@@ -502,6 +583,15 @@ fn is_svg(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
         .is_some_and(|ext| ext.eq_ignore_ascii_case("svg"))
+}
+
+fn cell_aspect(width_px: f32, height_px: f32, font: FontSize) -> Option<f64> {
+    if width_px <= 0.0 || height_px <= 0.0 || font.width == 0 || font.height == 0 {
+        return None;
+    }
+    let columns = width_px / font.width as f32;
+    let rows = height_px / font.height as f32;
+    (rows > 0.0).then(|| (columns / rows) as f64)
 }
 
 fn check_dimensions(image: &DynamicImage) -> anyhow::Result<()> {
@@ -849,7 +939,109 @@ mod tests {
         assert!(matches!(wt, ProtocolType::Sixel));
         let foot = detect_protocol_from(|key| (key == "TERM").then(|| "xterm-foot".into()));
         assert!(matches!(foot, ProtocolType::Sixel));
+        let tmux_sixel =
+            detect_protocol_from(|key| (key == "WT_SESSION" || key == "TMUX").then(|| "1".into()));
+        assert!(matches!(tmux_sixel, ProtocolType::Halfblocks));
+        let warp =
+            detect_protocol_from(|key| (key == "TERM_PROGRAM").then(|| "WarpTerminal".into()));
+        assert!(matches!(warp, ProtocolType::Iterm2));
         let plain = detect_protocol_from(|_| None);
         assert!(matches!(plain, ProtocolType::Halfblocks));
+    }
+
+    #[test]
+    fn parses_high_dpi_overrides() {
+        let cell = configured_font_size_from(Some("20x40")).expect("cell size");
+        assert_eq!((cell.width, cell.height), (20, 40));
+        assert!(configured_font_size_from(Some("20X40")).is_none());
+        assert!(configured_font_size_from(Some("0x40")).is_none());
+        assert!(configured_font_size_from(Some("bad")).is_none());
+        assert!(configured_font_size_from(None).is_none());
+        assert_eq!(render_scale_from(None), 1);
+        assert_eq!(render_scale_from(Some("2")), 2);
+        assert_eq!(render_scale_from(Some("4")), 4);
+        assert_eq!(render_scale_from(Some("0")), 1);
+        assert_eq!(render_scale_from(Some("9")), 1);
+        assert_eq!(render_scale_from(Some("x")), 1);
+    }
+
+    #[test]
+    fn mermaid_aspect_is_positive() {
+        let dir = tempfile::tempdir().unwrap();
+        let media = MediaManager::new(&options(dir.path()));
+        let aspect = media
+            .mermaid_aspect("flowchart LR\nA-->B\n")
+            .expect("mermaid aspect");
+        assert!(aspect > 0.0, "{aspect}");
+    }
+
+    #[test]
+    fn image_aspect_uses_pixels_and_cell_size() {
+        let dir = tempfile::tempdir().unwrap();
+        tiny_png(&dir.path().join("red.png"));
+        let media = MediaManager::new(&options(dir.path()));
+        let font = media.font_size();
+        let document_path = dir.path().join("spec.md");
+        let aspect = media
+            .image_aspect(&document_path, "red.png")
+            .expect("image aspect");
+        let expected = (2.0 / font.width as f64) / (2.0 / font.height as f64);
+        assert!((aspect - expected).abs() < 1e-6, "{aspect} vs {expected}");
+    }
+
+    #[test]
+    #[ignore = "diagnostic; run with --ignored --nocapture"]
+    fn diag_mermaid_rasters() {
+        let out = Path::new("/tmp/agentgloss-mermaid");
+        std::fs::create_dir_all(out).unwrap();
+        let fixture_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mermaid");
+        let picker = picker_for(ProtocolType::Halfblocks);
+        let font = picker.font_size();
+        let mut paths: Vec<_> = std::fs::read_dir(fixture_dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "mmd"))
+            .collect();
+        paths.sort();
+        for path in paths {
+            let source = std::fs::read_to_string(&path).unwrap();
+            let stem = path.file_stem().unwrap().to_string_lossy().to_string();
+            match render_mermaid_svg(MermaidEngine::Rust, Theme::Dark, &source, None) {
+                Ok(svg) => {
+                    std::fs::write(out.join(format!("{stem}.svg")), &svg).unwrap();
+                    let options = usvg::Options {
+                        fontdb: font_database(),
+                        ..usvg::Options::default()
+                    };
+                    let svg_size = usvg::Tree::from_str(&svg, &options)
+                        .ok()
+                        .map(|tree| tree.size());
+                    match rasterize_svg(&picker, &svg, (80, 10)) {
+                        Ok(image) => {
+                            let (width, height) = (image.width(), image.height());
+                            let rgba = image.to_rgba8();
+                            let mut min = (u32::MAX, u32::MAX);
+                            let mut max = (0u32, 0u32);
+                            let mut ink = 0u32;
+                            for (x, y, pixel) in rgba.enumerate_pixels() {
+                                if pixel[3] > 0 {
+                                    ink += 1;
+                                    min = (min.0.min(x), min.1.min(y));
+                                    max = (max.0.max(x), max.1.max(y));
+                                }
+                            }
+                            image.save(out.join(format!("{stem}.png"))).unwrap();
+                            println!(
+                                "{stem}: svg={:?} raster={width}x{height} ink={ink} bbox={min:?}..{max:?}",
+                                svg_size.map(|size| (size.width(), size.height()))
+                            );
+                        }
+                        Err(error) => println!("{stem}: RASTER ERROR {error:#}"),
+                    }
+                }
+                Err(error) => println!("{stem}: MERMAID ERROR {error:#}"),
+            }
+        }
+        println!("picker font={}x{}", font.width, font.height);
     }
 }

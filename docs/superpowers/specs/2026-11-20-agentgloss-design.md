@@ -1,7 +1,7 @@
 # agentgloss — Terminal Spec Reviewer Design
 
 - **Date:** 2026-11-20 (updated 2026-11-21)
-- **Status:** MVP complete; 146 automated tests passing; final QA pass has no critical or major findings
+- **Status:** MVP complete; 153 automated tests passing; final QA pass has no critical or major findings
 - **Name:** agentgloss (formerly mdreview, which collides with an existing Python/Textual project)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 
@@ -147,7 +147,7 @@ The build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host buil
 
 ## 12. Validation
 
-- 98 library tests, 15 CLI integration tests, 32 TUI integration tests, and 1 performance test pass (146 total); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
+- 104 library tests, 15 CLI integration tests, 33 TUI integration tests, and 1 performance test pass (153 total); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
 - Additional coverage includes tmux feedback/abort exit codes, custom sidecars, export locking, stale approval status, reattachment, narrow-terminal overlays, mouse hit-testing, content-addressed media caching, grapheme-safe wrapping, and a 2,000-line performance test.
 - PTY smoke test: a real tmux pane rendered the document, Mermaid, and image placeholder, accepted `q`, restored the terminal, and exited with code 1 (aborted).
 - Fake-tmux integration test verifies popup and detached command construction.

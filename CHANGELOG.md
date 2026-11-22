@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 — 2026-11-22
+
+- Media blocks now fit the document page: Mermaid diagrams and images are scaled to the page width, capped at the viewport height, sized by aspect ratio instead of fixed rows, and centered. Partially scrolled images use sliced protocols.
+- Added `AGENTGLOSS_CELL_SIZE=WxH` and `AGENTGLOSS_RENDER_SCALE=1..4` for high-DPI terminals whose images look soft.
+- Inside tmux, terminals that would otherwise use Sixel fall back to half-blocks, since tmux 3.2a cannot display Sixel.
+- Warp is detected as an iTerm2 inline-image terminal, so diagrams render as real images instead of half-blocks.
+
 ## 0.1.0 — 2026-11-21
 
 Initial MVP:

@@ -1,0 +1,10 @@
+sequenceDiagram
+  participant Human
+  participant Agent
+  participant Tool
+  Human->>Agent: Write spec
+  Agent->>Tool: request review
+  Tool-->>Human: open TUI
+  Human->>Agent: feedback
+  Agent->>Tool: resolve items
+  Tool-->>Human: export

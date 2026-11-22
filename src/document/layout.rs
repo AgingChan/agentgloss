@@ -1,6 +1,7 @@
 //! Layout: turn blocks and inline spans into wrapped visual lines with source maps.
 
 use super::{BlockKind, ColumnAlign, Document, Inline, InlineStyle, Table, TableCell};
+use std::collections::HashMap;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -49,7 +50,55 @@ const MERMAID_ROWS: usize = 10;
 const MIN_COLUMN: usize = 3;
 const SEPARATOR: &str = " │ ";
 
+/// Fit an aspect ratio (cell columns / cell rows) into a page, preserving the
+/// aspect. Width is preferred; the result is capped at `max_height`. A missing
+/// or bogus aspect falls back to `fallback_rows`.
+pub fn media_cell_size(
+    aspect: f64,
+    max_width: usize,
+    max_height: usize,
+    fallback_rows: usize,
+) -> (usize, usize) {
+    let max_width = max_width.max(1);
+    if !aspect.is_finite() || aspect <= 0.0 || max_height == 0 {
+        return (max_width, fallback_rows.max(1));
+    }
+    let rows_at_width = (max_width as f64 / aspect).ceil().max(1.0) as usize;
+    if rows_at_width <= max_height {
+        (max_width, rows_at_width)
+    } else {
+        let cols = (max_height as f64 * aspect).floor().max(1.0) as usize;
+        (cols.min(max_width), max_height)
+    }
+}
+
+fn media_rows(
+    block: usize,
+    aspects: &HashMap<usize, f64>,
+    width: usize,
+    max_height: usize,
+    fallback: usize,
+) -> usize {
+    match aspects.get(&block) {
+        Some(aspect) => media_cell_size(*aspect, width, max_height, fallback).1,
+        None => fallback.max(1),
+    }
+}
+
 pub fn layout(document: &Document, width: usize) -> Vec<VisualLine> {
+    layout_with_media(document, width, &HashMap::new(), 0)
+}
+
+/// Lay out a document with media blocks sized to the page. `aspects` maps a
+/// block index to its image aspect ratio in terminal cells (width / height);
+/// `max_height` is the document viewport height. A missing aspect or a zero
+/// height falls back to the fixed media-row defaults.
+pub fn layout_with_media(
+    document: &Document,
+    width: usize,
+    aspects: &HashMap<usize, f64>,
+    max_height: usize,
+) -> Vec<VisualLine> {
     let width = width.max(1);
     let mut out = Vec::new();
     for (index, block) in document.blocks.iter().enumerate() {
@@ -75,7 +124,8 @@ pub fn layout(document: &Document, width: usize) -> Vec<VisualLine> {
                     }
                     out.extend(lines);
                 } else {
-                    for _ in 0..IMAGE_ROWS {
+                    let rows = media_rows(block.index, aspects, width, max_height, IMAGE_ROWS);
+                    for _ in 0..rows {
                         out.push(media_line(
                             &label,
                             block.source.clone(),
@@ -87,7 +137,8 @@ pub fn layout(document: &Document, width: usize) -> Vec<VisualLine> {
                 }
             }
             BlockKind::Mermaid { .. } => {
-                for _ in 0..MERMAID_ROWS {
+                let rows = media_rows(block.index, aspects, width, max_height, MERMAID_ROWS);
+                for _ in 0..rows {
                     out.push(media_line(
                         "[mermaid diagram — Enter toggles source]",
                         block.source.clone(),
@@ -888,5 +939,54 @@ mod tests {
             !slice.contains('A'),
             "row range starts too early: {slice:?}"
         );
+    }
+
+    #[test]
+    fn media_cell_size_fits_the_page() {
+        assert_eq!(media_cell_size(10.0, 80, 20, 10), (80, 8));
+        assert_eq!(media_cell_size(0.2, 80, 20, 10), (4, 20));
+        assert_eq!(media_cell_size(1.0, 80, 20, 10), (20, 20));
+        assert_eq!(media_cell_size(100.0, 80, 20, 10), (80, 1));
+        assert_eq!(media_cell_size(f64::NAN, 80, 20, 10), (80, 10));
+        assert_eq!(media_cell_size(10.0, 80, 0, 10), (80, 10));
+    }
+
+    #[test]
+    fn mermaid_block_rows_follow_the_page_aspect() {
+        let source = "# Title\n\n```mermaid\nflowchart LR\nA-->B\n```\n\nAfter.\n";
+        let doc = Document::from_source("x.md", source.to_string());
+        let block = doc
+            .blocks
+            .iter()
+            .find(|block| matches!(block.kind, BlockKind::Mermaid { .. }))
+            .expect("mermaid block")
+            .index;
+        let mut aspects = HashMap::new();
+        aspects.insert(block, 10.0);
+        let lines = layout_with_media(&doc, 80, &aspects, 20);
+        let media = lines
+            .iter()
+            .filter(|line| line.block == block && line.is_media())
+            .count();
+        assert_eq!(media, 8);
+        assert!(lines.iter().any(|line| line.text.contains("After")));
+    }
+
+    #[test]
+    fn missing_media_aspect_uses_the_fallback_rows() {
+        let source = "# Title\n\n```mermaid\nflowchart LR\nA-->B\n```\n\nAfter.\n";
+        let doc = Document::from_source("x.md", source.to_string());
+        let block = doc
+            .blocks
+            .iter()
+            .find(|block| matches!(block.kind, BlockKind::Mermaid { .. }))
+            .expect("mermaid block")
+            .index;
+        let lines = layout_with_media(&doc, 80, &HashMap::new(), 20);
+        let media = lines
+            .iter()
+            .filter(|line| line.block == block && line.is_media())
+            .count();
+        assert_eq!(media, MERMAID_ROWS);
     }
 }

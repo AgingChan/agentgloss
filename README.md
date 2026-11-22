@@ -10,7 +10,7 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
 MVP implemented and tested:
 
-- 98 library tests, 15 CLI integration tests, 32 TUI integration tests, 1 performance test (146 total)
+- 104 library tests, 15 CLI integration tests, 33 TUI integration tests, 1 performance test (153 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
@@ -41,7 +41,7 @@ The installer downloads the latest release, verifies its SHA-256 checksum, and i
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
-  | sh -s -- --version v0.1.0 --dir "$HOME/bin"
+  | sh -s -- --version v0.1.1 --dir "$HOME/bin"
 ```
 
 Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
@@ -182,10 +182,11 @@ Mouse: click to place the cursor, drag to select, wheel to scroll, click outline
 | --- | --- |
 | Kitty, Ghostty | Kitty graphics |
 | WezTerm | iTerm2 graphics (Kitty-capable too) |
+| Warp | iTerm2 inline images; no Sixel |
 | Windows Terminal (WSL2) | Sixel when the terminal build supports it |
 | foot, mlterm, xterm | Sixel |
 | tmux 3.2a | half-blocks or Kitty placeholders with passthrough; no Sixel |
-| Terax (xterm.js) | half-blocks |
+| Terax 0.9 | half-blocks; it parses Kitty placements but does not render them yet |
 | Alacritty | half-blocks |
 
 Protocol detection is environment-based and can be overridden with `--protocol`. The interactive stdio query was intentionally removed: its reader thread stole keyboard input during PTY testing.
@@ -217,6 +218,8 @@ cache_dir = "~/.cache/agentgloss"
 ```
 
 CLI flags override the config file.
+
+For high-DPI terminal images that look soft, set `AGENTGLOSS_CELL_SIZE=WxH` to the terminal's real cell pixel size (for example `20x40`), or `AGENTGLOSS_RENDER_SCALE=2` to supersample the detected cell size. The layout aspect and rasterization use the same cell size. `--protocol` selects the graphics protocol when detection is wrong.
 
 ## Local harness
 

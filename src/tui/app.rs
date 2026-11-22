@@ -2,7 +2,7 @@
 
 use crate::config::{Keys, MermaidEngine, Protocol, Theme};
 use crate::document::{
-    BlockKind, Document, InlineStyle, StyledSpan, VisualKind, VisualLine, layout,
+    BlockKind, Document, InlineStyle, StyledSpan, VisualKind, VisualLine, layout_with_media,
 };
 use crate::media::MediaManager;
 use crate::review::{Anchor, Draft, ItemKind, ItemStatus, ReviewItem, ReviewStore, now};
@@ -151,6 +151,8 @@ pub struct App {
     drag_start: Option<usize>,
     pub(crate) confirm: Option<Confirm>,
     layout_width: usize,
+    layout_height: usize,
+    media_aspects: HashMap<usize, f64>,
     last_meta: Option<(SystemTime, u64)>,
     pending_reload: bool,
 }
@@ -168,8 +170,13 @@ impl App {
         };
         let mouse_enabled = options.mouse;
         let last_meta = file_meta(&document.path);
-        let media = MediaManager::new(&options);
-        let lines = layout(&document, 80);
+        let mut media = MediaManager::new(&options);
+        media.configure(&options);
+        let mermaid_source = HashSet::new();
+        let media_aspects =
+            compute_media_aspects(&media, &document, &mermaid_source, options.mermaid_engine);
+        let layout_height = 24;
+        let lines = layout_with_media(&document, 80, &media_aspects, layout_height);
         let outline = build_outline(&document);
         let mut app = Self {
             document,
@@ -178,7 +185,7 @@ impl App {
             options,
             media,
             media_keys: HashMap::new(),
-            mermaid_source: HashSet::new(),
+            mermaid_source,
             view: ViewMode::Rendered,
             input,
             focus: Focus::Document,
@@ -206,6 +213,8 @@ impl App {
             drag_start: None,
             confirm: None,
             layout_width: 80,
+            layout_height,
+            media_aspects,
             last_meta,
             pending_reload: false,
         };
@@ -277,10 +286,32 @@ impl App {
         self.layout_width
     }
 
+    pub fn layout_height(&self) -> usize {
+        self.layout_height
+    }
+
+    pub fn media_aspect(&self, block: usize) -> Option<f64> {
+        self.media_aspects.get(&block).copied()
+    }
+
+    fn refresh_media_aspects(&mut self) {
+        self.media_aspects = compute_media_aspects(
+            &self.media,
+            &self.document,
+            &self.mermaid_source,
+            self.options.mermaid_engine,
+        );
+    }
+
     pub fn rebuild(&mut self, width: usize) {
         self.layout_width = width.max(1);
         self.lines = match self.view {
-            ViewMode::Rendered => layout(&self.document, self.layout_width),
+            ViewMode::Rendered => layout_with_media(
+                &self.document,
+                self.layout_width,
+                &self.media_aspects,
+                self.layout_height.max(1),
+            ),
             ViewMode::Source => source_lines(&self.document),
         };
         if self.lines.is_empty() {
@@ -292,6 +323,11 @@ impl App {
         self.media_keys.clear();
         self.refresh_markers();
         self.ensure_cursor_visible(self.viewport_height.max(1));
+    }
+
+    pub fn rebuild_with_height(&mut self, width: usize, height: usize) {
+        self.layout_height = height.max(1);
+        self.rebuild(width);
     }
 
     pub fn toggle_view(&mut self) {
@@ -403,7 +439,16 @@ impl App {
             {
                 visible_end += 1;
             }
-            let target = (area.width, (full_end - full_start).max(1) as u16);
+            let target = {
+                let rows = (full_end - full_start).max(1) as u16;
+                let cols = match self.media_aspects.get(&block).copied() {
+                    Some(aspect) => {
+                        ((rows as f64 * aspect).round() as u16).clamp(1, self.layout_width as u16)
+                    }
+                    None => area.width,
+                };
+                (cols, rows)
+            };
             let key = match self.document.blocks.get(block).map(|b| b.kind.clone()) {
                 Some(BlockKind::Image { src, .. }) if !is_remote_image(&src) => {
                     Some(self.media.ensure_image(&self.document.path, &src, target))
@@ -1188,6 +1233,8 @@ impl App {
                 self.mermaid_source.insert(block);
                 self.status = "Mermaid source view".to_string();
             }
+            self.refresh_media_aspects();
+            self.rebuild(self.layout_width);
         }
     }
 
@@ -1539,6 +1586,7 @@ impl App {
                 self.document = document;
                 self.last_meta = file_meta(&self.document.path);
                 self.mermaid_source.clear();
+                self.refresh_media_aspects();
                 self.outline = build_outline(&self.document);
                 self.outline_cursor = self
                     .outline_cursor
@@ -1619,6 +1667,26 @@ impl Editor {
     pub fn title(&self) -> &str {
         &self.title
     }
+}
+
+fn compute_media_aspects(
+    media: &MediaManager,
+    document: &Document,
+    mermaid_source: &HashSet<usize>,
+    engine: MermaidEngine,
+) -> HashMap<usize, f64> {
+    let mut aspects = HashMap::new();
+    for block in &document.blocks {
+        if matches!(block.kind, BlockKind::Mermaid { .. })
+            && (engine == MermaidEngine::Source || mermaid_source.contains(&block.index))
+        {
+            continue;
+        }
+        if let Some(aspect) = media.aspect_for_block(block, &document.path) {
+            aspects.insert(block.index, aspect);
+        }
+    }
+    aspects
 }
 
 fn build_outline(document: &Document) -> Vec<OutlineItem> {

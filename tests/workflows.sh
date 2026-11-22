@@ -18,6 +18,9 @@ grep -q 'sha256sum' "$release"
 grep -q 'tags:' "$release"
 grep -q 'workflow_dispatch' "$release"
 grep -Fq "github.event_name == 'push'" "$release"
+grep -q 'publish-crates' "$release"
+grep -q 'CARGO_REGISTRY_TOKEN' "$release"
+grep -q 'cargo publish --locked' "$release"
 
 if python3 -c 'import yaml' 2>/dev/null; then
     python3 -c 'import sys, yaml; [yaml.safe_load(open(p)) for p in sys.argv[1:]]' "$ci" "$release"

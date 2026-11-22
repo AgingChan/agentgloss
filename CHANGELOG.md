@@ -23,3 +23,4 @@ Initial MVP:
 - Agent marker blocks and generated recipe file names changed; delete the old `<!-- mdreview:* -->` block, then re-run `agentgloss install <agent>`
 - Prebuilt Linux x86_64 and macOS Apple Silicon releases with an install script and SHA-256 checksums
 - `cargo install agentgloss` from crates.io
+- The release workflow publishes the crate to crates.io on version tags using the `CARGO_REGISTRY_TOKEN` secret

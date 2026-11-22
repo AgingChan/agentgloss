@@ -4,7 +4,7 @@
 
 **Goal:** Rename `mdreview` to `agentgloss` across the crate, CLI, agent integrations, docs, and harness; add crates.io metadata; add a GitHub Releases installer with Linux x86_64 and macOS Apple Silicon builds; publish v0.1.0.
 
-**Architecture:** One mechanical rename commit series keeps the test suite green at every task boundary. Distribution is a tag-triggered GitHub Actions workflow that builds the two native targets, packages stable-name tarballs with `SHA256SUMS`, and attaches them to the GitHub Release; a POSIX installer downloads and verifies them. crates.io publishing is a maintainer step after the package passes `cargo publish --dry-run`.
+**Architecture:** One mechanical rename commit series keeps the test suite green at every task boundary. Distribution is a tag-triggered GitHub Actions workflow that builds the two native targets, packages stable-name tarballs with `SHA256SUMS`, attaches them to the GitHub Release, and publishes the crate to crates.io from the `CARGO_REGISTRY_TOKEN` repository secret; a POSIX installer downloads and verifies the release assets.
 
 **Tech Stack:** Rust 2024, cargo 1.100, GitHub Actions, POSIX shell, curl, tar, SHA-256.
 
@@ -24,7 +24,7 @@
 - Historical identifiers stay: `MDREVIEW-*` task IDs, `state/` QA/progress notes, and the historical plan under `docs/superpowers/plans/2026-11-22-table-rendering.md`.
 - The local checkout stays at `/home/eugene/projects/mdreview`; only the GitHub repository name and crate/binary names change.
 - Do not include `.cargo/` in the crates.io package: its `config.toml` pins the musl target and would break `cargo install agentgloss` on hosts without that target.
-- Outward-facing steps (push, repo rename, tag, GitHub Release, `cargo publish`) happen in Task 7 only after explicit go-ahead. Task 7 is irreversible for the crates.io name.
+- Outward-facing steps (push, repo rename, tag, GitHub Release, crates.io publish) happen in Task 7 only after explicit go-ahead. Task 7 is irreversible for the crates.io name. The crates.io publish requires the repository secret `CARGO_REGISTRY_TOKEN`; the human partner adds it, never pasted into the conversation.
 - End every commit message with `Co-Authored-By: Claude Code <noreply@anthropic.com>`.
 
 ## Review Focus
@@ -33,7 +33,7 @@
 2. **Renamed config and marker surfaces:** `~/.config/mdreview/config.toml`, `<!-- mdreview:* -->` blocks, and `.claude/commands/mdreview-review.md` are not silently interpreted after the rename; the README and CHANGELOG state the new paths, and the local skill is regenerated. (Tasks 1–2, 6.)
 3. **Installer failure safety:** a bad checksum must fail without installing a binary; latest and pinned versions both work. (Task 4: `tests/install.sh`.)
 4. **Release matrix:** Linux static musl and macOS arm64 only, native runners, version tag guard, and no release on `workflow_dispatch`. (Task 5: `tests/workflows.sh` plus the dry run in Task 7.)
-5. **Publish readiness:** valid Cargo metadata, a clean package listing, and a successful dry run before the irreversible crates.io publish. (Task 3 and Task 7.)
+5. **Publish readiness:** valid Cargo metadata, a clean package listing, a successful dry run, and the `CARGO_REGISTRY_TOKEN` secret before the irreversible automated crates.io publish. (Task 3 and Task 7.)
 
 ---
 
@@ -428,6 +428,7 @@ Trigger on `push` of tags `v*` and on `workflow_dispatch`. `permissions: content
   - `actions/download-artifact@v4` with `merge-multiple: true` into `dist/`.
   - `cd dist && sha256sum *.tar.gz > SHA256SUMS`.
   - `gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes`, then `gh release upload "$GITHUB_REF_NAME" dist/* --clobber`, with `GH_TOKEN: ${{ github.token }}`.
+- `publish-crates` job (needs `test` and `release`, tag pushes only): install Rust with the musl target, then `cargo publish --locked` with `CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}`; skip when `https://crates.io/api/v1/crates/agentgloss/<version>` already exists. `tests/workflows.sh` asserts the job, the secret, and the publish command.
 
 - [ ] **Step 4: Verify**
 
@@ -469,7 +470,7 @@ Before the Build section, document:
 - [ ] **Step 2: Update status and release docs**
 
 - Update the README status counts to the current suite total after Task 1 (145 tests: 97 lib, 15 CLI, 1 performance, 32 TUI).
-- Add a maintainer release checklist: update `CHANGELOG.md`, tag `v<version>`, let the workflow build the release, run `cargo publish --locked`, verify the installer on Linux and Apple Silicon.
+- Add a maintainer release checklist: update `CHANGELOG.md`, tag `v<version>`, let the workflow build the release and publish to crates.io via `CARGO_REGISTRY_TOKEN`, verify the installer on Linux and Apple Silicon.
 - Update `CHANGELOG.md` with the rename, config-path move, marker/recipe changes, installer, and crates.io publication.
 
 - [ ] **Step 3: Verify**
@@ -537,20 +538,20 @@ gh release view v0.1.0
 ```
 Expected: `agentgloss-x86_64-unknown-linux-musl.tar.gz`, `agentgloss-aarch64-apple-darwin.tar.gz`, and `SHA256SUMS` are attached.
 
-- [ ] **Step 5: Publish to crates.io**
+- [ ] **Step 5: Confirm the crates.io secret and verify the automated publish**
 
-Ask the human partner to authenticate without pasting a token into the conversation:
-```
-! cargo login
-```
-Then:
+Before tagging, confirm the repository secret exists (the value is never read or printed):
 ```bash
-source scripts/env.sh
-cargo publish --dry-run --locked
-cargo publish --locked
+gh secret list --repo AgingChan/agentgloss
+```
+Expected: `CARGO_REGISTRY_TOKEN` is listed. If it is missing, ask the human partner to add it with `gh secret set CARGO_REGISTRY_TOKEN` (a crates.io token with publish scope) or the repo Actions settings.
+
+The tag from Step 4 triggers `publish-crates` after the GitHub Release. Verify:
+```bash
+gh run view <release-run-id> --log
 curl -sS https://crates.io/api/v1/crates/agentgloss | head -c 400
 ```
-Expected: the dry run succeeds and the crates.io API returns the `agentgloss` crate metadata.
+Expected: the `publish-crates` job passes and the crates.io API returns the `agentgloss` crate metadata. A re-run skips the version if it is already published.
 
 - [ ] **Step 6: Verify the install paths**
 

@@ -15,6 +15,7 @@ grep -Fq 'delete the old' "$readme"
 grep -Fq 'delete the old' "$changelog"
 grep -Fq 'Library/Application Support/agentgloss' "$readme"
 grep -Fq 'Library/Application Support/agentgloss' "$root/specs/002-core-cli.md"
+grep -Fq 'CARGO_REGISTRY_TOKEN' "$readme"
 grep -Fq '98 library tests' "$design"
 grep -Fq '146 total' "$design"
 if grep -Fq 'working name collides' "$design"; then

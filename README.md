@@ -90,7 +90,7 @@ Maintainers publish from `main`:
 1. Update `CHANGELOG.md` and the `Cargo.toml` version, then merge the change to `main`.
 2. `git tag v<version> && git push origin v<version>`.
 3. The release workflow builds the Linux and macOS tarballs, writes `SHA256SUMS`, and publishes the GitHub Release.
-4. Run `cargo publish --locked` (requires a one-time `cargo login`).
+4. The workflow then publishes `agentgloss` to crates.io using the `CARGO_REGISTRY_TOKEN` repository secret. Add it once with `gh secret set CARGO_REGISTRY_TOKEN` (a crates.io token with publish scope) or under Settings → Secrets and variables → Actions. Re-running a tag skips an already-published version.
 5. Verify the installer on Linux x86_64 and Apple Silicon, and `cargo install agentgloss --version <version>` in a clean environment.
 
 ## Quick start

@@ -24,7 +24,7 @@ Let people install agentgloss without a Rust toolchain, conda environment, or mu
 - Windows, Linux aarch64, macOS Intel, Homebrew, Nix, AUR, Docker images. Only Apple Silicon macOS is built and validated.
 - Auto-update.
 - Apple notarization or Developer ID signing; macOS binaries are ad-hoc signed.
-- Publishing to crates.io automatically from CI in this change (the maintainer runs `cargo publish --locked`; a token-backed CI job can come later).
+- Managing crates.io tokens beyond a repository-scoped `CARGO_REGISTRY_TOKEN` secret.
 - Changing the application binary or its runtime behavior.
 
 ## Constraints
@@ -72,6 +72,7 @@ Each tarball contains `agentgloss`, `LICENSE`, and `README.md` at its root.
 - Job `test` (ubuntu): fmt, clippy, full tests, installer tests. Release requires this job.
 - Job `build` (matrix): one leg per target above, on the matching native runner. Steps: install Rust stable with the target, `cargo build --release --locked --target <target>`, strip (Linux `strip`; macOS `strip -x`), ad-hoc codesign on macOS (`codesign --force --sign -`), stage the tarball, upload it as a workflow artifact.
 - Job `release`: download all tarballs, write `SHA256SUMS` with `sha256sum`, create the GitHub Release for the tag and upload the four assets. `permissions: contents: write`. On `workflow_dispatch`, stop after uploading workflow artifacts.
+- Job `publish-crates` (needs `test` and `release`, tag pushes only): `cargo publish --locked` with `CARGO_REGISTRY_TOKEN` from the repository secret. It skips a version that is already on crates.io so a tag re-run is idempotent.
 - A version guard fails the run if the tag is not `v` + the `Cargo.toml` version.
 
 ### PR CI (`.github/workflows/ci.yml`)
@@ -92,7 +93,7 @@ POSIX `sh`, `set -eu`, no dependencies beyond `curl`, `tar`, and a SHA-256 tool.
 
 - Add Cargo metadata: `description`, `license = "MIT"`, `repository`, `readme`, `keywords`, `categories`, and an `exclude` list for `.cargo/`, `state/`, `harness/`, `docs/`, `specs/`, `.github/`, `.claude/`, `.superpowers/`, `scripts/`, and `init.sh`. Excluding `.cargo/config.toml` is required: it pins the musl target locally and would make `cargo install agentgloss` fail on hosts that do not have that target.
 - Verify with `cargo publish --dry-run --locked` and `cargo package --list` in CI.
-- Publishing is a maintainer action after the GitHub release: `cargo login` once, then `cargo publish --locked` from the tagged commit. `cargo install agentgloss` then builds locally for Rust users. The implementation prepares and dry-runs the package; the actual publish needs the maintainer's crates.io token and is performed with their explicit go-ahead.
+- Publishing runs in the release workflow on tag pushes, after the GitHub Release, using the repository's `CARGO_REGISTRY_TOKEN` secret. Add the secret once (crates.io token with publish scope); the job skips a version that already exists. `cargo install agentgloss` then builds locally for Rust users.
 
 ### README
 
@@ -117,7 +118,7 @@ Add an Install section before Build:
 1. Ensure `main` is green and `Cargo.toml` version is correct; update `CHANGELOG.md`.
 2. `git tag v0.1.0 && git push origin v0.1.0`.
 3. The release workflow builds the two tarballs, writes `SHA256SUMS`, and publishes the GitHub Release.
-4. Run `cargo publish --locked` (crates.io token required once via `cargo login`).
+4. The workflow publishes to crates.io using `CARGO_REGISTRY_TOKEN`; ensure the repository secret exists before tagging.
 5. Verify: `curl ... | sh` on Linux and Apple Silicon; `cargo install agentgloss` in a clean environment.
 
 ## Risks
@@ -126,6 +127,7 @@ Add an Install section before Build:
 - Ad-hoc-signed macOS binaries may trip Gatekeeper when downloaded through a browser; the installer uses `curl` and the README documents the quarantine workaround.
 - Checksums come from the same release as the binary; this detects corruption, not a compromised repository.
 - Publishing to crates.io permanently claims the `agentgloss` name.
+- If `CARGO_REGISTRY_TOKEN` is missing or expired, the crates.io job fails after the GitHub Release; fix the secret and re-run the tag workflow. The job skips versions already published.
 
 ## Left to the builder
 

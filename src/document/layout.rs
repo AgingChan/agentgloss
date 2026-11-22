@@ -1,6 +1,6 @@
 //! Layout: turn blocks and inline spans into wrapped visual lines with source maps.
 
-use super::{BlockKind, Document, Inline, InlineStyle};
+use super::{BlockKind, Document, Inline, InlineStyle, Table, TableCell};
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -108,6 +108,18 @@ pub fn layout(document: &Document, width: usize) -> Vec<VisualLine> {
                     kind: VisualKind::Text,
                 });
             }
+            BlockKind::Table => {
+                if let Some(table) = block.table.as_ref() {
+                    let mut cells = Vec::new();
+                    push_prefix(&mut cells, block);
+                    cells.extend(flatten_table_cells(table, block.source.start));
+                    let mut lines = wrap_cells(&cells, width, block.index, document);
+                    if lines.is_empty() {
+                        lines.push(blank_line(block.source.start, block.index, document));
+                    }
+                    out.extend(lines);
+                }
+            }
             _ => {
                 let mut cells = Vec::new();
                 push_prefix(&mut cells, block);
@@ -136,6 +148,32 @@ fn push_prefix(cells: &mut Vec<Cell>, block: &super::Block) {
         }
         push_str(cells, marker, InlineStyle::Plain, source);
     }
+}
+
+fn flatten_table_cells(table: &Table, fallback: usize) -> Vec<Cell> {
+    let mut cells = Vec::new();
+    let mut rows: Vec<&[TableCell]> = Vec::new();
+    if !table.header.is_empty() {
+        rows.push(&table.header);
+    }
+    rows.extend(table.rows.iter().map(Vec::as_slice));
+    for (row_index, row) in rows.iter().enumerate() {
+        if row_index > 0 {
+            push_str(&mut cells, "\n", InlineStyle::Plain, fallback);
+        }
+        for (cell_index, cell) in row.iter().enumerate() {
+            if cell_index > 0 {
+                push_str(&mut cells, " | ", InlineStyle::Plain, fallback);
+            }
+            push_inlines(&mut cells, &cell.inlines, cell.source.start);
+        }
+        if row_index == 0 && !table.header.is_empty() {
+            push_str(&mut cells, "\n", InlineStyle::Plain, fallback);
+            let separator = row.iter().map(|_| "---").collect::<Vec<_>>().join(" | ");
+            push_str(&mut cells, &separator, InlineStyle::Plain, fallback);
+        }
+    }
+    cells
 }
 
 fn push_inlines(cells: &mut Vec<Cell>, inlines: &[Inline], fallback: usize) {
@@ -428,5 +466,19 @@ mod tests {
         assert!(lines.iter().all(|line| {
             !line.text.contains('\u{200d}') || line.text.contains("👨‍👩‍👧‍👦")
         }));
+    }
+
+    #[test]
+    fn narrow_table_falls_back_to_flattened_text() {
+        let source = "| A | B | C | D |\n| --- | --- | --- | --- |\n| 1 | 2 | 3 | 4 |\n";
+        let doc = Document::from_source("x.md", source.to_string());
+        let lines = layout(&doc, 10);
+        let text = lines
+            .iter()
+            .map(|l| l.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("---"), "{text:?}");
+        assert!(text.contains("1 | 2"), "{text:?}");
     }
 }

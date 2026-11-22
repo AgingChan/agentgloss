@@ -32,7 +32,7 @@ pub fn export_prompt(
         .count();
 
     let mut out = String::new();
-    out.push_str("# mdreview review\n\n");
+    out.push_str("# agentgloss review\n\n");
     out.push_str(&format!("- File: {}\n", store.file));
     out.push_str(&format!("- Round: {}\n", store.round));
     out.push_str(&format!("- Document hash: {}\n", store.doc_hash));
@@ -83,7 +83,7 @@ pub fn export_prompt(
         .map(|path| format!(" --sidecar {}", quote_command_path(&path.to_string_lossy())))
         .unwrap_or_default();
     out.push_str(&format!(
-        "  mdreview resolve {} {}{}\n\n",
+        "  agentgloss resolve {} {}{}\n\n",
         quote_command_path(&store.file),
         items
             .iter()
@@ -219,11 +219,11 @@ mod tests {
     fn prompt_contains_numbered_items() {
         let (store, _document, id) = fixture();
         let prompt = export_prompt(&store, false, None);
-        assert!(prompt.contains("# mdreview review"));
+        assert!(prompt.contains("# agentgloss review"));
         assert!(prompt.contains("- Status: feedback"));
         assert!(prompt.contains(&format!("[{}] comment", id)));
         assert!(prompt.contains("> Hello world."));
-        assert!(prompt.contains("mdreview resolve spec.md c1"));
+        assert!(prompt.contains("agentgloss resolve spec.md c1"));
     }
 
     #[test]
@@ -231,7 +231,7 @@ mod tests {
         let (store, _document, id) = fixture();
         let anchor = &store.items[0].anchor;
         let expected = format!(
-            "# mdreview review\n\n\
+            "# agentgloss review\n\n\
 - File: spec.md\n\
 - Round: 1\n\
 - Document hash: {}\n\
@@ -239,7 +239,7 @@ mod tests {
 - Open items: 1 (1 comment, 0 suggestions)\n\n\
 Address the items below. Answer every comment and accept or reject every suggestion.\n\
 After editing, mark fixed items resolved:\n\
-\x20\x20mdreview resolve spec.md {id}\n\n\
+\x20\x20agentgloss resolve spec.md {id}\n\n\
 ## 1. [{id}] comment — open — lines {}-{}\n\
 Heading: Plan\n\
 Quote:\n\
@@ -263,7 +263,7 @@ Anchor: bytes {}-{}\n\n",
         store.approve();
         let prompt = export_prompt(&store, false, None);
         let expected = format!(
-            "# mdreview review\n\n- File: spec.md\n- Round: 1\n- Document hash: {}\n- Status: approved\n- Open items: 0\n\nThe reviewer approved this revision. No changes are required.\n",
+            "# agentgloss review\n\n- File: spec.md\n- Round: 1\n- Document hash: {}\n- Status: approved\n- Open items: 0\n\nThe reviewer approved this revision. No changes are required.\n",
             document.hash
         );
         assert_eq!(prompt, expected);
@@ -280,7 +280,7 @@ Anchor: bytes {}-{}\n\n",
         assert!(prompt.contains("Resolved items (archived):"));
         assert!(prompt.contains(&format!("[{id}] comment — resolved")));
         assert!(!prompt.contains("Address the items below"));
-        assert!(!prompt.contains("mdreview resolve"));
+        assert!(!prompt.contains("agentgloss resolve"));
     }
 
     #[test]
@@ -312,7 +312,7 @@ Anchor: bytes {}-{}\n\n",
         let (mut store, _document, _id) = fixture();
         store.file = "spec file #1.md".to_string();
         let prompt = export_prompt(&store, false, None);
-        assert!(prompt.contains("mdreview resolve 'spec file #1.md' c1"));
+        assert!(prompt.contains("agentgloss resolve 'spec file #1.md' c1"));
     }
 
     #[test]
@@ -377,7 +377,7 @@ Anchor: bytes {}-{}\n\n",
         let prompt = export_prompt(&store, false, Some(Path::new("state/review #1.json")));
         assert!(
             prompt.contains(&format!(
-                "mdreview resolve spec.md {id} --sidecar 'state/review #1.json'"
+                "agentgloss resolve spec.md {id} --sidecar 'state/review #1.json'"
             )),
             "{prompt}"
         );

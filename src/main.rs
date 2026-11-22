@@ -1,3 +1,3 @@
 fn main() {
-    std::process::exit(mdreview::cli::run());
+    std::process::exit(agentgloss::cli::run());
 }

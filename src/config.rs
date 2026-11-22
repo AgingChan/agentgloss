@@ -97,7 +97,7 @@ impl Config {
             ];
             for key in table.keys() {
                 if !KNOWN.contains(&key.as_str()) {
-                    eprintln!("mdreview: warning: unknown config key '{key}'");
+                    eprintln!("agentgloss: warning: unknown config key '{key}'");
                 }
             }
         }
@@ -116,7 +116,7 @@ impl Config {
         let dir = self.cache_dir.clone().unwrap_or_else(|| {
             dirs::cache_dir()
                 .unwrap_or_else(|| PathBuf::from(".cache"))
-                .join("mdreview")
+                .join("agentgloss")
         });
         if let Some(text) = dir.to_str()
             && let Some(rest) = text.strip_prefix("~/")
@@ -129,7 +129,7 @@ impl Config {
 }
 
 pub fn config_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|dir| dir.join("mdreview").join("config.toml"))
+    dirs::config_dir().map(|dir| dir.join("agentgloss").join("config.toml"))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -158,7 +158,7 @@ mod tests {
         assert_eq!(config.keys, Keys::Vim);
         assert!(config.mouse);
         assert_eq!(config.protocol, Protocol::Auto);
-        assert!(config.cache_dir().ends_with("mdreview"));
+        assert!(config.cache_dir().ends_with("agentgloss"));
     }
 
     #[test]

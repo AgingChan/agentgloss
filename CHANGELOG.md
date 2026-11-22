@@ -18,3 +18,9 @@ Initial MVP:
 - Asynchronous media workers and content-addressed in-memory caching
 - Static musl release binary
 - Local TDD harness with gate, plan, QA, and report scripts
+- Renamed from mdreview to agentgloss; the crate, binary, and commands are now `agentgloss`
+- Config and cache directories moved to `agentgloss`; an existing `~/.config/mdreview` is not read
+- Agent marker blocks and generated recipe file names changed; delete the old `<!-- mdreview:* -->` block, then re-run `agentgloss install <agent>`
+- Prebuilt Linux x86_64 and macOS Apple Silicon releases with an install script and SHA-256 checksums
+- `cargo install agentgloss` from crates.io
+- The release workflow publishes the crate to crates.io on version tags using the `CARGO_REGISTRY_TOKEN` secret

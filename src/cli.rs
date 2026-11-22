@@ -21,7 +21,7 @@ pub const EXIT_TUI_ABORTED: i32 = 22;
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "mdreview",
+    name = "agentgloss",
     version,
     about = "Terminal reviewer for long Markdown specs"
 )]
@@ -138,7 +138,7 @@ pub fn run() -> i32 {
     match dispatch(cli) {
         Ok(code) => code,
         Err(error) => {
-            eprintln!("mdreview: {error}");
+            eprintln!("agentgloss: {error}");
             EXIT_ERROR
         }
     }
@@ -174,7 +174,7 @@ fn dispatch(cli: Cli) -> anyhow::Result<i32> {
 }
 
 fn persist_tui_result(code: i32) {
-    if let Some(path) = std::env::var_os("MDREVIEW_RESULT_FILE") {
+    if let Some(path) = std::env::var_os("AGENTGLOSS_RESULT_FILE") {
         let _ = std::fs::write(path, format!("{code}\n"));
     }
 }
@@ -201,7 +201,7 @@ fn run_review(args: &ReviewArgs, internal: bool) -> anyhow::Result<i32> {
     )?;
     if let Some(backup) = &outcome.backup_path {
         eprintln!(
-            "mdreview: corrupt review state backed up to {}",
+            "agentgloss: corrupt review state backed up to {}",
             backup.display()
         );
     }
@@ -259,7 +259,7 @@ fn run_request(file: &PathBuf, sidecar_override: Option<&PathBuf>) -> anyhow::Re
     )?;
     if let Some(backup) = &outcome.backup_path {
         eprintln!(
-            "mdreview: corrupt review state backed up to {}",
+            "agentgloss: corrupt review state backed up to {}",
             backup.display()
         );
     }
@@ -272,9 +272,9 @@ fn run_request(file: &PathBuf, sidecar_override: Option<&PathBuf>) -> anyhow::Re
         .map(|path| format!(" --sidecar {}", agent::display_path(path)))
         .unwrap_or_default();
     let file_display = agent::display_path(file);
-    println!("Human: mdreview review {file_display}{sidecar_flag}");
+    println!("Human: agentgloss review {file_display}{sidecar_flag}");
     println!(
-        "Agent: mdreview export {file_display}{sidecar_flag}   (or mdreview wait {file_display}{sidecar_flag})"
+        "Agent: agentgloss export {file_display}{sidecar_flag}   (or agentgloss wait {file_display}{sidecar_flag})"
     );
     Ok(EXIT_OK)
 }
@@ -298,7 +298,7 @@ fn run_wait(args: &WaitArgs) -> anyhow::Result<i32> {
             }
         }
         if args.timeout > 0 && start.elapsed() >= timeout {
-            eprintln!("mdreview: review wait timed out");
+            eprintln!("agentgloss: review wait timed out");
             return Ok(EXIT_TIMEOUT);
         }
         std::thread::sleep(interval);

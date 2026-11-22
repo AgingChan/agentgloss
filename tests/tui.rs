@@ -1,10 +1,10 @@
+use agentgloss::config::{Keys, MermaidEngine, Protocol, Theme};
+use agentgloss::document::Document;
+use agentgloss::review::{Anchor, ItemStatus, ReviewStore, sidecar_path};
+use agentgloss::tui::TuiOptions;
+use agentgloss::tui::app::{App, Focus};
+use agentgloss::tui::render;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use mdreview::config::{Keys, MermaidEngine, Protocol, Theme};
-use mdreview::document::Document;
-use mdreview::review::{Anchor, ItemStatus, ReviewStore, sidecar_path};
-use mdreview::tui::TuiOptions;
-use mdreview::tui::app::{App, Focus};
-use mdreview::tui::render;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::style::{Color, Modifier};
@@ -56,7 +56,7 @@ fn draw(app: &mut App, width: u16, height: u16) -> String {
 fn renders_at_80x24_and_wide() {
     let (mut app, _dir) = fixture("# Plan\n\nHello world.\n\nSecond paragraph.\n");
     let text = draw(&mut app, 80, 24);
-    assert!(text.contains("mdreview"));
+    assert!(text.contains("agentgloss"));
     assert!(text.contains("Plan"));
     assert!(text.contains("Hello world"));
     assert!(text.contains("[Comment]"));
@@ -320,7 +320,7 @@ fn review_panel_and_footer_clicks_work() {
     let (comment_button, _) = layout
         .footer_buttons
         .iter()
-        .find(|(_, action)| *action == mdreview::tui::app::FooterAction::Comment)
+        .find(|(_, action)| *action == agentgloss::tui::app::FooterAction::Comment)
         .unwrap();
     app.handle_mouse(MouseEvent {
         kind: MouseEventKind::Down(MouseButton::Left),
@@ -339,7 +339,7 @@ fn send_button_hits_the_send_action() {
     let (send, _) = layout
         .footer_buttons
         .iter()
-        .find(|(_, action)| *action == mdreview::tui::app::FooterAction::Send)
+        .find(|(_, action)| *action == agentgloss::tui::app::FooterAction::Send)
         .unwrap();
     app.handle_mouse(MouseEvent {
         kind: MouseEventKind::Down(MouseButton::Left),
@@ -399,7 +399,7 @@ fn signoff_from_tui_exits_with_feedback() {
     app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL));
     app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL));
     app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert_eq!(app.exit, Some(mdreview::tui::TuiExit::Feedback));
+    assert_eq!(app.exit, Some(agentgloss::tui::TuiExit::Feedback));
 }
 
 #[test]

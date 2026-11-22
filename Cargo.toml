@@ -1,7 +1,25 @@
 [package]
-name = "mdreview"
+name = "agentgloss"
 version = "0.1.0"
 edition = "2024"
+description = "A terminal reviewer for long Markdown specs and agent-generated plans"
+license = "MIT"
+repository = "https://github.com/AgingChan/agentgloss"
+readme = "README.md"
+keywords = ["markdown", "tui", "review", "agents", "spec"]
+categories = ["command-line-utilities", "development-tools", "text-processing"]
+exclude = [
+    ".cargo/**",
+    ".claude/**",
+    ".github/**",
+    ".superpowers/**",
+    "docs/**",
+    "harness/**",
+    "init.sh",
+    "scripts/**",
+    "specs/**",
+    "state/**",
+]
 
 [dependencies]
 anyhow = "1.0.104"

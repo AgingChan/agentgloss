@@ -9,6 +9,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "agentgloss"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crossterm",
+ "dirs",
+ "edtui",
+ "fontdb 0.24.0",
+ "fs2",
+ "hex",
+ "image",
+ "mermaid-rs-renderer",
+ "pulldown-cmark",
+ "ratatui",
+ "ratatui-image",
+ "resvg",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "time",
+ "tiny-skia",
+ "toml",
+ "unicode-segmentation",
+ "unicode-width",
+ "usvg",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1145,37 +1176,6 @@ checksum = "f3d0581a75c45969c63afd2bb87b1d8b25cfcc556c7a918cf9bb13b0fe8d2381"
 dependencies = [
  "nix 0.31.4",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "mdreview"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "crossterm",
- "dirs",
- "edtui",
- "fontdb 0.24.0",
- "fs2",
- "hex",
- "image",
- "mermaid-rs-renderer",
- "pulldown-cmark",
- "ratatui",
- "ratatui-image",
- "resvg",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
- "time",
- "tiny-skia",
- "toml",
- "unicode-segmentation",
- "unicode-width",
- "usvg",
 ]
 
 [[package]]

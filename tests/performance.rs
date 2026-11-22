@@ -1,4 +1,4 @@
-use mdreview::document::{Document, layout};
+use agentgloss::document::{Document, layout};
 use std::fmt::Write as _;
 use std::time::{Duration, Instant};
 

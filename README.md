@@ -1,16 +1,16 @@
-# mdreview
+# agentgloss
 
 A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
-`mdreview` renders Markdown (including local images and Mermaid diagrams), lets you attach comments and suggested edits to exact source lines or paragraphs, and returns a numbered, paste-ready review to Claude Code, Codex CLI, Gemini CLI, OpenCode, Aider, or any other agent.
+`agentgloss` renders Markdown (including local images and Mermaid diagrams), lets you attach comments and suggested edits to exact source lines or paragraphs, and returns a numbered, paste-ready review to Claude Code, Codex CLI, Gemini CLI, OpenCode, Aider, or any other agent.
 
-> Working name: it collides with an existing Python/Textual project called mdreview. The binary and project name may change before release.
+> Formerly mdreview. The crate and binary are now agentgloss.
 
 ## Status
 
 MVP implemented and tested:
 
-- 84 library tests, 15 CLI integration tests, 31 TUI integration tests, 1 performance test (131 total)
+- 98 library tests, 15 CLI integration tests, 32 TUI integration tests, 1 performance test (146 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
@@ -29,6 +29,39 @@ MVP implemented and tested:
 - Standalone, agent handshake, and tmux launch paths
 - Agent install recipes for Claude Code, Codex, Gemini, and generic CLIs
 
+## Install
+
+Prebuilt binaries are published for Linux x86_64 (static musl) and macOS Apple Silicon. macOS Intel, Windows, and Linux aarch64 are not built.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh | sh
+```
+
+The installer downloads the latest release, verifies its SHA-256 checksum, and installs to `${AGENTGLOSS_INSTALL_DIR:-$HOME/.local/bin}`. Pin a version or choose a directory with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
+  | sh -s -- --version v0.1.0 --dir "$HOME/bin"
+```
+
+Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
+
+Rust users can install from crates.io (this compiles locally and requires a Rust toolchain):
+
+```sh
+cargo install agentgloss
+```
+
+For unreleased code:
+
+```sh
+cargo install --git https://github.com/AgingChan/agentgloss
+```
+
+macOS binaries are ad-hoc signed. If Gatekeeper quarantines the downloaded binary, run `xattr -d com.apple.quarantine ~/.local/bin/agentgloss`.
+
+> Renaming from mdreview: the config directory is now `~/.config/agentgloss` (`~/Library/Application Support/agentgloss` on macOS); an existing `~/.config/mdreview` is not read. Old `<!-- mdreview:* -->` marker blocks are not recognized; delete the old block, then re-run `agentgloss install <agent>` to install the new recipes.
+
 ## Build
 
 The project targets a static `x86_64-unknown-linux-musl` binary. On this machine, Rust and a host linker are provided by:
@@ -40,35 +73,45 @@ The project targets a static `x86_64-unknown-linux-musl` binary. On this machine
 ```sh
 source scripts/env.sh
 cargo build --release
-./target/x86_64-unknown-linux-musl/release/mdreview --version
+./target/x86_64-unknown-linux-musl/release/agentgloss --version
 ```
 
 If you already have a working C linker, you can remove `.cargo/config.toml` and build normally. The generated binary is static:
 
 ```sh
-file target/x86_64-unknown-linux-musl/release/mdreview
+file target/x86_64-unknown-linux-musl/release/agentgloss
 # ELF 64-bit LSB pie executable ... static-pie linked
 ```
+
+## Releases
+
+Maintainers publish from `main`:
+
+1. Update `CHANGELOG.md` and the `Cargo.toml` version, then merge the change to `main`.
+2. `git tag v<version> && git push origin v<version>`.
+3. The release workflow builds the Linux and macOS tarballs, writes `SHA256SUMS`, and publishes the GitHub Release.
+4. The workflow then publishes `agentgloss` to crates.io using the `CARGO_REGISTRY_TOKEN` repository secret. Add it once with `gh secret set CARGO_REGISTRY_TOKEN` (a crates.io token with publish scope) or under Settings → Secrets and variables → Actions. Re-running a tag skips an already-published version.
+5. Verify the installer on Linux x86_64 and Apple Silicon, and `cargo install agentgloss --version <version>` in a clean environment.
 
 ## Quick start
 
 ```sh
 # Review in your terminal
-mdreview review docs/specs/checkout.md
+agentgloss review docs/specs/checkout.md
 
 # If the agent needs to request a review first
-mdreview request docs/specs/checkout.md
+agentgloss request docs/specs/checkout.md
 # ... the human runs:
-mdreview review docs/specs/checkout.md
+agentgloss review docs/specs/checkout.md
 # ... then the agent runs:
-mdreview export docs/specs/checkout.md
+agentgloss export docs/specs/checkout.md
 ```
 
 Inside tmux:
 
 ```sh
-mdreview review docs/specs/checkout.md --tmux
-mdreview review docs/specs/checkout.md --detach   # agent polls with wait
+agentgloss review docs/specs/checkout.md --tmux
+agentgloss review docs/specs/checkout.md --detach   # agent polls with wait
 ```
 
 ## Commands
@@ -90,20 +133,20 @@ Exit codes: `0` approved/no open items, `10` open feedback, `1` aborted, `2` err
 
 ## Review workflow
 
-1. The agent writes a spec and runs `mdreview request <file>`.
-2. You run `mdreview review <file>` (separate pane, or the agent opens a tmux popup).
+1. The agent writes a spec and runs `agentgloss request <file>`.
+2. You run `agentgloss review <file>` (separate pane, or the agent opens a tmux popup).
 3. Select text or a block, press `c` for a comment or `s` for a suggested edit, then `F10` (or `Ctrl+Enter`) to save.
 4. `F10` (or `Ctrl+Enter`) again opens signoff. A clean review is approved; otherwise the review is sent to the agent.
-5. The agent runs `mdreview export <file>` or `mdreview wait <file>`, addresses the numbered items, and runs `mdreview resolve <file> <ids>`.
+5. The agent runs `agentgloss export <file>` or `agentgloss wait <file>`, addresses the numbered items, and runs `agentgloss resolve <file> <ids>`.
 6. Reopen the review after the revision. Open items re-anchor; stale items remain visible for reattachment.
 
 ### Agent recipes
 
 ```sh
-mdreview install claude    # .claude/commands/mdreview-review.md
-mdreview install codex     # AGENTS.md marker block
-mdreview install gemini    # GEMINI.md marker block
-mdreview install generic   # mdreview-agent.md
+agentgloss install claude    # .claude/commands/agentgloss-review.md
+agentgloss install codex     # AGENTS.md marker block
+agentgloss install gemini    # GEMINI.md marker block
+agentgloss install generic   # agentgloss-agent.md
 ```
 
 Codex and Gemini installs update only the marker block and preserve the rest of `AGENTS.md`/`GEMINI.md`. Claude and generic installs replace their dedicated recipe files. Re-running any install is idempotent.
@@ -162,7 +205,7 @@ Writes are atomic. Corrupt JSON is backed up to `<sidecar>.bak.<timestamp>`. Unk
 
 ## Configuration
 
-Optional `~/.config/mdreview/config.toml`:
+Optional config file: `~/.config/agentgloss/config.toml` on Linux, or `~/Library/Application Support/agentgloss/config.toml` on macOS:
 
 ```toml
 keys = "vim"            # vim | standard
@@ -170,7 +213,7 @@ mouse = true
 protocol = "auto"       # auto | kitty | iterm2 | sixel | halfblocks
 theme = "auto"          # auto | dark | light
 mermaid_engine = "auto" # auto | rust | mmdc | source
-cache_dir = "~/.cache/mdreview"
+cache_dir = "~/.cache/agentgloss"
 ```
 
 CLI flags override the config file.
@@ -189,7 +232,7 @@ The repository mirrors the `sotto/harness` local development harness:
 ./harness/loop.sh         # autonomous session loop (needs claude CLI)
 ```
 
-State lives in `state/tasks.json`, `state/progress.md`, and `state/fix_plan.md`. Feature specs live in `specs/`; the design doc is `docs/superpowers/specs/2026-11-20-mdreview-design.md`.
+State lives in `state/tasks.json`, `state/progress.md`, and `state/fix_plan.md`. Feature specs live in `specs/`; the design doc is `docs/superpowers/specs/2026-11-20-agentgloss-design.md`.
 
 ## Testing
 
@@ -205,15 +248,15 @@ Manual PTY smoke test:
 ```sh
 tmp=$(mktemp -d)
 cp tests/fixtures/spec.md tests/fixtures/red.png "$tmp"/
-tmux new-session -d -s mdreview -x 100 -y 30 \
-  "cd $tmp && /path/to/mdreview review spec.md"
+tmux new-session -d -s agentgloss -x 100 -y 30 \
+  "cd $tmp && /path/to/agentgloss review spec.md"
 sleep 2
-tmux send-keys -t mdreview q
+tmux send-keys -t agentgloss q
 ```
 
 ## Known limitations
 
-- The name collides with the existing Python `mdreview`.
+- The former name `mdreview` collides with an existing Python/Textual project.
 - Media cache is in-memory; disk caching and an LRU bound are deferred.
 - `mermaid-rs-renderer` is pre-1.0; use `mmdc` for official fidelity.
 - Remote image fetching, ACP/MCP, CI gating, comment threads, and full Vim emulation are out of scope; remote URLs render as link-styled text.

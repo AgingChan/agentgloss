@@ -1,13 +1,13 @@
-# mdreview — Autonomous Session Prompt
+# agentgloss — Autonomous Session Prompt
 
-You are building mdreview, a Rust terminal reviewer for long Markdown specs. Follow the session protocol exactly.
+You are building agentgloss, a Rust terminal reviewer for long Markdown specs. Follow the session protocol exactly.
 
 ## Session Protocol
 
 ### 1. Orient
 - Read `state/progress.md` for recent context.
 - Read `state/tasks.json` for task status.
-- Read `docs/superpowers/specs/2026-11-20-mdreview-design.md` for the design.
+- Read `docs/superpowers/specs/2026-11-20-agentgloss-design.md` for the design.
 - Run `git log --oneline -10` for recent changes.
 
 ### 2. Setup
@@ -62,7 +62,7 @@ You are building mdreview, a Rust terminal reviewer for long Markdown specs. Fol
 ## Project Context
 
 - Stack: Rust 2024, ratatui + crossterm, pulldown-cmark, static musl binary.
-- Design: `docs/superpowers/specs/2026-11-20-mdreview-design.md`
+- Design: `docs/superpowers/specs/2026-11-20-agentgloss-design.md`
 - Specs: `specs/` (numbered, one per feature area)
 - Harness: `harness/` (gate, loop, plan, QA, report)
 - Source: `src/`, tests: `tests/`

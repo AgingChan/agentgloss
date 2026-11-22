@@ -1,10 +1,10 @@
-use mdreview::document::Document;
-use mdreview::review::{Anchor, ReviewStore, StoreLock, sidecar_path};
+use agentgloss::document::Document;
+use agentgloss::review::{Anchor, ReviewStore, StoreLock, sidecar_path};
 use std::path::Path;
 use std::process::{Command, Output};
 
 fn bin() -> &'static str {
-    env!("CARGO_BIN_EXE_mdreview")
+    env!("CARGO_BIN_EXE_agentgloss")
 }
 
 fn run(dir: &Path, args: &[&str]) -> Output {
@@ -13,7 +13,7 @@ fn run(dir: &Path, args: &[&str]) -> Output {
         .current_dir(dir)
         .env_remove("TMUX")
         .output()
-        .expect("run mdreview")
+        .expect("run agentgloss")
 }
 
 fn write_spec(dir: &Path) -> std::path::PathBuf {
@@ -45,7 +45,7 @@ fn version_and_help() {
     let dir = tempfile::tempdir().unwrap();
     let output = run(dir.path(), &["--version"]);
     assert!(output.status.success());
-    assert!(String::from_utf8_lossy(&output.stdout).contains("mdreview"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("agentgloss"));
     let help = run(dir.path(), &["--help"]);
     assert!(help.status.success());
     assert!(String::from_utf8_lossy(&help.stdout).contains("request"));
@@ -58,7 +58,7 @@ fn request_status_export_resolve_flow() {
 
     let request = run(dir.path(), &["request", "spec.md"]);
     assert!(request.status.success(), "{request:?}");
-    assert!(String::from_utf8_lossy(&request.stdout).contains("mdreview review spec.md"));
+    assert!(String::from_utf8_lossy(&request.stdout).contains("agentgloss review spec.md"));
     assert!(sidecar_path(&path).exists());
 
     let status = run(dir.path(), &["status", "spec.md", "--json"]);
@@ -71,7 +71,7 @@ fn request_status_export_resolve_flow() {
     let export = run(dir.path(), &["export", "spec.md"]);
     assert_eq!(export.status.code(), Some(10), "{export:?}");
     let prompt = String::from_utf8_lossy(&export.stdout);
-    assert!(prompt.contains("mdreview review"));
+    assert!(prompt.contains("agentgloss review"));
     assert!(prompt.contains(&id));
     assert!(prompt.contains("Please clarify this."));
 
@@ -149,16 +149,16 @@ fn install_writes_recipes() {
     let dir = tempfile::tempdir().unwrap();
     let output = run(dir.path(), &["install", "claude", "--dir", "."]);
     assert!(output.status.success(), "{output:?}");
-    let recipe = dir.path().join(".claude/commands/mdreview-review.md");
+    let recipe = dir.path().join(".claude/commands/agentgloss-review.md");
     assert!(recipe.exists());
     let text = std::fs::read_to_string(recipe).unwrap();
-    assert!(text.contains("mdreview request"));
-    assert!(text.contains("mdreview export"));
+    assert!(text.contains("agentgloss request"));
+    assert!(text.contains("agentgloss export"));
 
     let output = run(dir.path(), &["install", "codex", "--dir", "."]);
     assert!(output.status.success());
     let text = std::fs::read_to_string(dir.path().join("AGENTS.md")).unwrap();
-    assert_eq!(text.matches("<!-- mdreview:start -->").count(), 1);
+    assert_eq!(text.matches("<!-- agentgloss:start -->").count(), 1);
 }
 
 #[test]
@@ -246,7 +246,7 @@ fn custom_sidecar_commands_work() {
     let prompt = String::from_utf8_lossy(&export.stdout);
     assert!(
         prompt.contains(&format!(
-            "mdreview resolve spec.md {id} --sidecar custom.review.json"
+            "agentgloss resolve spec.md {id} --sidecar custom.review.json"
         )),
         "{prompt}"
     );
@@ -350,7 +350,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
     let tmux = bin_dir.join("tmux");
     std::fs::write(
         &tmux,
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nif [ -n \"${TMUX_FAKE_RESULT:-}\" ]; then printf '%s\\n' \"$TMUX_FAKE_RESULT\" > \"$MDREVIEW_RESULT_FILE\"; fi\nexit ${TMUX_EXIT:-21}\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nif [ -n \"${TMUX_FAKE_RESULT:-}\" ]; then printf '%s\\n' \"$TMUX_FAKE_RESULT\" > \"$AGENTGLOSS_RESULT_FILE\"; fi\nexit ${TMUX_EXIT:-21}\n",
     )
     .unwrap();
     std::fs::set_permissions(&tmux, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -455,7 +455,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .output()
         .unwrap();
     assert_eq!(popup_failure.status.code(), Some(2), "{popup_failure:?}");
-    assert!(String::from_utf8_lossy(&popup_failure.stderr).contains("mdreview review"));
+    assert!(String::from_utf8_lossy(&popup_failure.stderr).contains("agentgloss review"));
 
     let abort_doc = dir.path().join("abort.md");
     std::fs::write(&abort_doc, "# Abort\n").unwrap();
@@ -502,7 +502,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .output()
         .unwrap();
     assert!(detach.status.success(), "{detach:?}");
-    assert!(String::from_utf8_lossy(&detach.stdout).contains("mdreview wait"));
+    assert!(String::from_utf8_lossy(&detach.stdout).contains("agentgloss wait"));
     let recorded = std::fs::read_to_string(&log).unwrap();
     assert!(recorded.contains("new-window"));
 

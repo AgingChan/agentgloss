@@ -21,7 +21,7 @@ Provide the local autonomous-development harness requested from `sotto/harness`,
 - `./harness/gate.sh` exits 0 with a clean working tree (warnings allowed).
 - `bash -n` passes for every harness script.
 - `cargo run -- --version` prints a version once the CLI exists.
-- The release binary is statically linked (`file target/.../mdreview` reports static-pie).
+- The release binary is statically linked (`file target/.../agentgloss` reports static-pie).
 
 ## Tests
 

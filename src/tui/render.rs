@@ -16,7 +16,7 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     if area.width < 20 || area.height < 10 {
         app.layout = None;
         frame.render_widget(
-            Paragraph::new("Terminal too small for mdreview.\nMinimum: 20x10")
+            Paragraph::new("Terminal too small for agentgloss.\nMinimum: 20x10")
                 .wrap(Wrap { trim: true }),
             area,
         );
@@ -139,7 +139,7 @@ fn render_header(frame: &mut Frame<'_>, app: &App, area: Rect) {
         .map(|name| name.to_string_lossy().to_string())
         .unwrap_or_else(|| app.document.path.display().to_string());
     let text = format!(
-        " mdreview  {}  round {}  open {}  [{}]",
+        " agentgloss  {}  round {}  open {}  [{}]",
         file,
         app.store.round,
         app.store.open_count(),

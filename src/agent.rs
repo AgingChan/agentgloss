@@ -11,8 +11,8 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const START: &str = "<!-- mdreview:start -->";
-const END: &str = "<!-- mdreview:end -->";
+const START: &str = "<!-- agentgloss:start -->";
+const END: &str = "<!-- agentgloss:end -->";
 
 pub fn install(agent: InstallAgent, dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     std::fs::create_dir_all(dir)?;
@@ -22,7 +22,7 @@ pub fn install(agent: InstallAgent, dir: &Path) -> anyhow::Result<Vec<PathBuf>> 
             let path = dir
                 .join(".claude")
                 .join("commands")
-                .join("mdreview-review.md");
+                .join("agentgloss-review.md");
             write_file(&path, &claude_recipe())?;
             written.push(path);
         }
@@ -37,7 +37,7 @@ pub fn install(agent: InstallAgent, dir: &Path) -> anyhow::Result<Vec<PathBuf>> 
             written.push(path);
         }
         InstallAgent::Generic => {
-            let path = dir.join("mdreview-agent.md");
+            let path = dir.join("agentgloss-agent.md");
             write_file(&path, &generic_recipe())?;
             written.push(path);
         }
@@ -77,7 +77,7 @@ fn upsert_block(path: &Path, block: &str) -> anyhow::Result<()> {
         ),
         (Some(_), Some(_)) => {
             anyhow::bail!(
-                "malformed mdreview markers in {} (end appears before start)",
+                "malformed agentgloss markers in {} (end appears before start)",
                 path.display()
             );
         }
@@ -105,15 +105,15 @@ fn upsert_block(path: &Path, block: &str) -> anyhow::Result<()> {
 fn claude_recipe() -> String {
     String::from(
         "---\n\
-description: Review a Markdown spec with mdreview\n\
+description: Review a Markdown spec with agentgloss\n\
 ---\n\
 \n\
 When the user asks to review a spec or plan:\n\
 \n\
-1. Run `mdreview request <file>`.\n\
-2. Ask the user to run `mdreview review <file>` (or `mdreview review <file> --tmux` inside tmux).\n\
-3. When they finish, run `mdreview export <file>` and address every open item.\n\
-4. Run `mdreview resolve <file> <ids>` for fixed items.\n\
+1. Run `agentgloss request <file>`.\n\
+2. Ask the user to run `agentgloss review <file>` (or `agentgloss review <file> --tmux` inside tmux).\n\
+3. When they finish, run `agentgloss export <file>` and address every open item.\n\
+4. Run `agentgloss resolve <file> <ids>` for fixed items.\n\
 \n\
 Do not edit the spec while the user is reviewing it.\n\
 ",
@@ -122,13 +122,13 @@ Do not edit the spec while the user is reviewing it.\n\
 
 fn generic_recipe() -> String {
     String::from(
-        "# mdreview agent recipe\n\n\
+        "# agentgloss agent recipe\n\n\
 When the user asks to review a Markdown spec or plan:\n\n\
-1. Run `mdreview request <file>`.\n\
-2. Ask the user to run `mdreview review <file>` in a terminal (or `mdreview review <file> --tmux` inside tmux).\n\
-3. Wait or poll with `mdreview wait <file>`; alternatively run `mdreview export <file>` after the user signs off.\n\
+1. Run `agentgloss request <file>`.\n\
+2. Ask the user to run `agentgloss review <file>` in a terminal (or `agentgloss review <file> --tmux` inside tmux).\n\
+3. Wait or poll with `agentgloss wait <file>`; alternatively run `agentgloss export <file>` after the user signs off.\n\
 4. Address every open item. Suggestions show an original and a replacement.\n\
-5. Mark fixed items with `mdreview resolve <file> <ids>`.\n\
+5. Mark fixed items with `agentgloss resolve <file> <ids>`.\n\
 6. Do not edit the spec while the user is reviewing it.\n",
     )
 }
@@ -136,12 +136,12 @@ When the user asks to review a Markdown spec or plan:\n\n\
 fn codex_block() -> String {
     format!(
         "{START}\n\
-## mdreview spec review\n\n\
+## agentgloss spec review\n\n\
 When the user asks to review a spec or plan:\n\n\
-1. Run `mdreview request <file>`.\n\
-2. Ask the user to run `mdreview review <file>` (or `mdreview review <file> --tmux` inside tmux).\n\
-3. Run `mdreview export <file>` after signoff and address every open item.\n\
-4. Run `mdreview resolve <file> <ids>` for fixed items.\n\
+1. Run `agentgloss request <file>`.\n\
+2. Ask the user to run `agentgloss review <file>` (or `agentgloss review <file> --tmux` inside tmux).\n\
+3. Run `agentgloss export <file>` after signoff and address every open item.\n\
+4. Run `agentgloss resolve <file> <ids>` for fixed items.\n\
 5. Do not edit the spec while the user is reviewing it.\n\
 {END}\n"
     )
@@ -150,12 +150,12 @@ When the user asks to review a spec or plan:\n\n\
 fn gemini_block() -> String {
     format!(
         "{START}\n\
-## mdreview spec review\n\n\
+## agentgloss spec review\n\n\
 When the user asks to review a spec or plan:\n\n\
-1. Run `mdreview request <file>`.\n\
-2. Ask the user to run `mdreview review <file>` (or `mdreview review <file> --tmux` inside tmux).\n\
-3. Run `mdreview export <file>` after signoff and address every open item.\n\
-4. Run `mdreview resolve <file> <ids>` for fixed items.\n\
+1. Run `agentgloss request <file>`.\n\
+2. Ask the user to run `agentgloss review <file>` (or `agentgloss review <file> --tmux` inside tmux).\n\
+3. Run `agentgloss export <file>` after signoff and address every open item.\n\
+4. Run `agentgloss resolve <file> <ids>` for fixed items.\n\
 5. Do not edit the spec while the user is reviewing it.\n\
 {END}\n"
     )
@@ -164,45 +164,45 @@ When the user asks to review a spec or plan:\n\n\
 pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
     if std::env::var_os("TMUX").is_none() {
         anyhow::bail!(
-            "not inside tmux; run `mdreview review {}` in your terminal instead",
+            "not inside tmux; run `agentgloss review {}` in your terminal instead",
             args.file.display()
         );
     }
     let command = tui_command(args)?;
     if args.detach {
         let status = Command::new("tmux")
-            .args(["new-window", "-d", "-n", "mdreview", &command])
+            .args(["new-window", "-d", "-n", "agentgloss", &command])
             .status()
             .map_err(|error| {
                 anyhow::anyhow!(
-                    "cannot run tmux: {error}; run `mdreview review {}` in your terminal instead",
+                    "cannot run tmux: {error}; run `agentgloss review {}` in your terminal instead",
                     args.file.display()
                 )
             })?;
         if !status.success() {
             anyhow::bail!(
-                "tmux new-window failed; run `mdreview review {}` in your terminal instead",
+                "tmux new-window failed; run `agentgloss review {}` in your terminal instead",
                 args.file.display()
             );
         }
-        println!("Opened mdreview in a detached tmux window.");
+        println!("Opened agentgloss in a detached tmux window.");
         if let Some(sidecar) = &args.sidecar {
             println!(
-                "Agent: mdreview wait {} --sidecar {}",
+                "Agent: agentgloss wait {} --sidecar {}",
                 display_path(&args.file),
                 display_path(sidecar)
             );
         } else {
-            println!("Agent: mdreview wait {}", display_path(&args.file));
+            println!("Agent: agentgloss wait {}", display_path(&args.file));
         }
         return Ok(EXIT_OK);
     }
 
-    let title = format!("mdreview: {}", args.file.display());
+    let title = format!("agentgloss: {}", args.file.display());
     let sidecar = review_sidecar(args);
     let result_file = tui_result_path();
     let popup_command = format!(
-        "MDREVIEW_RESULT_FILE={} {}",
+        "AGENTGLOSS_RESULT_FILE={} {}",
         shell_quote(result_file.as_os_str()),
         command
     );
@@ -218,14 +218,14 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
             &title,
             &popup_command,
         ])
-        .env("MDREVIEW_RESULT_FILE", &result_file)
+        .env("AGENTGLOSS_RESULT_FILE", &result_file)
         .status()
     {
         Ok(status) => status,
         Err(error) => {
             let _ = std::fs::remove_file(&result_file);
             anyhow::bail!(
-                "cannot run tmux display-popup: {error}; run `mdreview review {}` in your terminal instead",
+                "cannot run tmux display-popup: {error}; run `agentgloss review {}` in your terminal instead",
                 args.file.display()
             );
         }
@@ -240,7 +240,7 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
         EXIT_TUI_APPROVED | EXIT_TUI_FEEDBACK | EXIT_TUI_ABORTED
     ) {
         anyhow::bail!(
-            "tmux display-popup failed (status {code}); run `mdreview review {}` in your terminal instead",
+            "tmux display-popup failed (status {code}); run `agentgloss review {}` in your terminal instead",
             args.file.display()
         );
     }
@@ -262,7 +262,7 @@ fn tui_result_path() -> PathBuf {
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
     std::env::temp_dir().join(format!(
-        "mdreview-tui-result-{}-{stamp}.txt",
+        "agentgloss-tui-result-{}-{stamp}.txt",
         std::process::id()
     ))
 }
@@ -344,9 +344,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let written = install(InstallAgent::Claude, dir.path()).unwrap();
         let text = std::fs::read_to_string(&written[0]).unwrap();
-        assert!(text.contains("mdreview request"));
-        assert!(text.contains("mdreview export"));
-        assert!(text.contains("mdreview review"));
+        assert!(text.contains("agentgloss request"));
+        assert!(text.contains("agentgloss export"));
+        assert!(text.contains("agentgloss review"));
     }
 
     #[test]
@@ -368,9 +368,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let written = install(InstallAgent::Generic, dir.path()).unwrap();
         let text = std::fs::read_to_string(&written[0]).unwrap();
-        assert!(text.contains("mdreview request"));
-        assert!(text.contains("mdreview wait"));
-        assert!(text.contains("mdreview resolve"));
+        assert!(text.contains("agentgloss request"));
+        assert!(text.contains("agentgloss wait"));
+        assert!(text.contains("agentgloss resolve"));
     }
 
     #[test]
@@ -386,7 +386,7 @@ mod tests {
         assert!(twice.contains("Keep me."));
         assert_eq!(twice.matches(START).count(), 1);
 
-        let generic_path = dir.path().join("mdreview-agent.md");
+        let generic_path = dir.path().join("agentgloss-agent.md");
         install(InstallAgent::Generic, dir.path()).unwrap();
         let once = std::fs::read_to_string(&generic_path).unwrap();
         install(InstallAgent::Generic, dir.path()).unwrap();
@@ -400,7 +400,7 @@ mod tests {
         let start_only = dir.path().join("AGENTS.md");
         std::fs::write(
             &start_only,
-            "# Keep\n\n<!-- mdreview:start -->\norphaned text\n",
+            "# Keep\n\n<!-- agentgloss:start -->\norphaned text\n",
         )
         .unwrap();
         install(InstallAgent::Codex, dir.path()).unwrap();
@@ -413,7 +413,7 @@ mod tests {
         let end_only = dir.path().join("GEMINI.md");
         std::fs::write(
             &end_only,
-            "Notes before\n\n<!-- mdreview:end -->\n\n# Keep\n",
+            "Notes before\n\n<!-- agentgloss:end -->\n\n# Keep\n",
         )
         .unwrap();
         install(InstallAgent::Gemini, dir.path()).unwrap();
@@ -428,7 +428,7 @@ mod tests {
     fn malformed_markers_and_unreadable_files_are_not_overwritten() {
         let dir = tempfile::tempdir().unwrap();
         let malformed = dir.path().join("AGENTS.md");
-        let before = "<!-- mdreview:end -->\nkeep\n<!-- mdreview:start -->\n";
+        let before = "<!-- agentgloss:end -->\nkeep\n<!-- agentgloss:start -->\n";
         std::fs::write(&malformed, before).unwrap();
         assert!(install(InstallAgent::Codex, dir.path()).is_err());
         assert_eq!(std::fs::read_to_string(&malformed).unwrap(), before);
@@ -437,6 +437,19 @@ mod tests {
         std::fs::write(&binary, [0xff, 0xfe, 0x00]).unwrap();
         assert!(install(InstallAgent::Gemini, dir.path()).is_err());
         assert_eq!(std::fs::read(&binary).unwrap(), vec![0xff, 0xfe, 0x00]);
+    }
+
+    #[test]
+    fn legacy_mdreview_markers_are_left_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        let legacy = "<!-- mdreview:start -->\nold\n<!-- mdreview:end -->\n";
+        std::fs::write(&path, legacy).unwrap();
+        install(InstallAgent::Codex, dir.path()).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains(legacy), "{text}");
+        assert_eq!(text.matches(START).count(), 1);
+        assert_eq!(text.matches(END).count(), 1);
     }
 
     #[test]

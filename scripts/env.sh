@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mdreview build environment. Source this file; do not execute it.
+# agentgloss build environment. Source this file; do not execute it.
 # - conda rustbuild provides a host C compiler/sysroot for build scripts and proc macros
 # - the final target is static x86_64-unknown-linux-musl linked with Rust's bundled rust-lld
 #

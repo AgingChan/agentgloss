@@ -326,7 +326,7 @@ fn render_with_mmdc_program(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    let dir = std::env::temp_dir().join(format!("mdreview-mmdc-{}-{stamp}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("agentgloss-mmdc-{}-{stamp}", std::process::id()));
     std::fs::create_dir_all(&dir)?;
     let input = dir.join("diagram.mmd");
     let output = dir.join("diagram.svg");

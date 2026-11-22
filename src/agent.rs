@@ -202,7 +202,7 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
     let sidecar = review_sidecar(args);
     let result_file = tui_result_path();
     let popup_command = format!(
-        "MDREVIEW_RESULT_FILE={} {}",
+        "AGENTGLOSS_RESULT_FILE={} {}",
         shell_quote(result_file.as_os_str()),
         command
     );
@@ -218,7 +218,7 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
             &title,
             &popup_command,
         ])
-        .env("MDREVIEW_RESULT_FILE", &result_file)
+        .env("AGENTGLOSS_RESULT_FILE", &result_file)
         .status()
     {
         Ok(status) => status,

@@ -350,7 +350,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
     let tmux = bin_dir.join("tmux");
     std::fs::write(
         &tmux,
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nif [ -n \"${TMUX_FAKE_RESULT:-}\" ]; then printf '%s\\n' \"$TMUX_FAKE_RESULT\" > \"$MDREVIEW_RESULT_FILE\"; fi\nexit ${TMUX_EXIT:-21}\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TMUX_LOG\"\nif [ -n \"${TMUX_FAKE_RESULT:-}\" ]; then printf '%s\\n' \"$TMUX_FAKE_RESULT\" > \"$AGENTGLOSS_RESULT_FILE\"; fi\nexit ${TMUX_EXIT:-21}\n",
     )
     .unwrap();
     std::fs::set_permissions(&tmux, std::fs::Permissions::from_mode(0o755)).unwrap();

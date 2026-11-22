@@ -174,7 +174,7 @@ fn dispatch(cli: Cli) -> anyhow::Result<i32> {
 }
 
 fn persist_tui_result(code: i32) {
-    if let Some(path) = std::env::var_os("MDREVIEW_RESULT_FILE") {
+    if let Some(path) = std::env::var_os("AGENTGLOSS_RESULT_FILE") {
         let _ = std::fs::write(path, format!("{code}\n"));
     }
 }

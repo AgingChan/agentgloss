@@ -236,9 +236,12 @@ fn layout_table(
                 wrap_cell(&cells, widths[col])
             })
             .collect();
+        let row_source = union_ranges(row.iter().map(|cell| cell.source.clone()))
+            .unwrap_or_else(|| block.source.clone());
         let height = wrapped.iter().map(Vec::len).max().unwrap_or(1).max(1);
         for line_index in 0..height {
             let mut line_cells = prefix.clone();
+            let mut content_ranges: Vec<Range<usize>> = Vec::new();
             for col in 0..columns {
                 if col > 0 {
                     push_str(
@@ -250,6 +253,7 @@ fn layout_table(
                 }
                 let empty = Vec::new();
                 let content = wrapped[col].get(line_index).unwrap_or(&empty);
+                content_ranges.extend(content.iter().map(|cell| cell.source.clone()));
                 let align = table.alignments.get(col).copied().unwrap_or_default();
                 let source = row
                     .get(col)
@@ -262,7 +266,10 @@ fn layout_table(
             } else {
                 VisualKind::Text
             };
-            if let Some(line) = make_line_with_kind(&line_cells, block.index, document, kind) {
+            let source = union_ranges(content_ranges).unwrap_or_else(|| row_source.clone());
+            if let Some(line) =
+                make_line_with_source(&line_cells, block.index, document, kind, source)
+            {
                 out.push(line);
             }
         }
@@ -280,6 +287,12 @@ fn push_flattened_table(
     push_prefix(&mut cells, block);
     cells.extend(flatten_table_cells(table, block.source.start));
     let mut lines = wrap_cells(&cells, width, block.index, document);
+    for line in &mut lines {
+        if line.source.start >= line.source.end {
+            line.source = block.source.clone();
+            line.source_lines = document.lines_of(line.source.clone());
+        }
+    }
     if lines.is_empty() {
         lines.push(blank_line(block.source.start, block.index, document));
     }
@@ -313,10 +326,13 @@ fn wrap_cell(cells: &[Cell], width: usize) -> Vec<Vec<Cell>> {
                 break_at
             };
             line_width = 0;
+            last_space = None;
+            if start > index {
+                continue;
+            }
             for carried in &cells[start..index] {
                 line_width += carried.width;
             }
-            last_space = None;
         }
         if cell.text == " " {
             last_space = Some(index);
@@ -334,6 +350,20 @@ fn trim_cells(mut cells: &[Cell]) -> &[Cell] {
         cells = &cells[..cells.len() - 1];
     }
     cells
+}
+
+fn union_ranges(ranges: impl IntoIterator<Item = Range<usize>>) -> Option<Range<usize>> {
+    let mut union: Option<Range<usize>> = None;
+    for range in ranges {
+        if range.start >= range.end {
+            continue;
+        }
+        union = Some(match union {
+            Some(existing) => existing.start.min(range.start)..existing.end.max(range.end),
+            None => range,
+        });
+    }
+    union
 }
 
 fn push_padded(
@@ -481,6 +511,9 @@ fn wrap_cells(cells: &[Cell], width: usize, block: usize, document: &Document) -
             if break_at < cells.len() && cells[break_at].text == " " {
                 start = break_at + 1;
             }
+            if start > index {
+                continue;
+            }
             // Recompute the width of the carried-over part.
             for carried in &cells[start..index] {
                 line_width += carried.width;
@@ -527,6 +560,20 @@ fn make_line_with_kind(
         })
         .unwrap_or(source_start);
     let source = source_start..source_end.max(source_start);
+    make_line_with_source(cells, block, document, kind, source)
+}
+
+fn make_line_with_source(
+    cells: &[Cell],
+    block: usize,
+    document: &Document,
+    kind: VisualKind,
+    source: Range<usize>,
+) -> Option<VisualLine> {
+    let cells = trim_cells(cells);
+    if cells.is_empty() {
+        return None;
+    }
     let source_lines = document.lines_of(source.clone());
 
     let mut spans: Vec<StyledSpan> = Vec::new();
@@ -791,6 +838,55 @@ mod tests {
             table_lines[0].text.starts_with("│ "),
             "{:?}",
             table_lines[0].text
+        );
+    }
+
+    #[test]
+    fn table_wrapping_never_panics() {
+        let source = "| Action | Vim | Notes |\n| --- | --- | --- |\n| Move line down | j | moves the cursor down one line |\n| Half page | Ctrl-d | scrolls half a page |\n";
+        let doc = Document::from_source("x.md", source.to_string());
+        for width in 5..=120 {
+            let _ = layout(&doc, width);
+        }
+    }
+
+    #[test]
+    fn paragraph_wrapping_never_panics_at_the_boundary() {
+        let doc = Document::from_source("x.md", "abcdefghij klm\n".to_string());
+        for width in 5..=20 {
+            let _ = layout(&doc, width);
+        }
+    }
+
+    #[test]
+    fn every_non_blank_table_line_has_a_source_range() {
+        let source = "| A | B | C |\n| --- | --- | --- |\n| alpha beta | gamma delta | |\n| 1 |\n";
+        let doc = Document::from_source("x.md", source.to_string());
+        for width in 5..=40 {
+            let lines = layout(&doc, width);
+            for line in lines.iter().filter(|l| l.block == 0 && !l.is_blank()) {
+                assert!(
+                    line.source.start < line.source.end,
+                    "width {width}: {:?} src={:?}",
+                    line.text,
+                    line.source
+                );
+                assert!(line.source.end <= doc.source.len());
+            }
+        }
+    }
+
+    #[test]
+    fn blockquoted_table_rows_map_to_the_row_source() {
+        let source = "> | A | B |\n> | --- | --- |\n> | 1 | 2 |\n> | 3 | 4 |\n";
+        let doc = Document::from_source("x.md", source.to_string());
+        let lines = layout(&doc, 40);
+        let row = lines.iter().find(|l| l.text.contains("3")).expect("row");
+        let slice = doc.text_in_range(row.source.clone());
+        assert!(slice.contains("3"), "{slice:?} src={:?}", row.source);
+        assert!(
+            !slice.contains('A'),
+            "row range starts too early: {slice:?}"
         );
     }
 }

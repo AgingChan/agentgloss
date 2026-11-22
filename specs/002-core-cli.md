@@ -36,7 +36,7 @@ agentgloss __tui <file> [review options]   # hidden tmux entry point
 
 ## Config
 
-`~/.config/agentgloss/config.toml` is optional:
+On Linux the config is `~/.config/agentgloss/config.toml`; on macOS it is `~/Library/Application Support/agentgloss/config.toml`. The file is optional:
 
 ```toml
 keys = "vim"            # vim | standard

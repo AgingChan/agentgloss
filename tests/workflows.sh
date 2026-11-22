@@ -8,6 +8,7 @@ test -f "$ci" && test -f "$release" || { echo "workflow files missing" >&2; exit
 grep -q 'cargo test --all-features' "$ci"
 grep -q 'tests/install.sh' "$ci"
 grep -q 'tests/package.sh' "$ci"
+grep -q 'tests/docs.sh' "$ci"
 grep -q 'tests/workflows.sh' "$ci"
 grep -q 'x86_64-unknown-linux-musl' "$release"
 grep -q 'aarch64-apple-darwin' "$release"
@@ -16,6 +17,7 @@ grep -q 'SHA256SUMS' "$release"
 grep -q 'sha256sum' "$release"
 grep -q 'tags:' "$release"
 grep -q 'workflow_dispatch' "$release"
+grep -Fq "github.event_name == 'push'" "$release"
 
 if python3 -c 'import yaml' 2>/dev/null; then
     python3 -c 'import sys, yaml; [yaml.safe_load(open(p)) for p in sys.argv[1:]]' "$ci" "$release"

@@ -60,7 +60,7 @@ cargo install --git https://github.com/AgingChan/agentgloss
 
 macOS binaries are ad-hoc signed. If Gatekeeper quarantines the downloaded binary, run `xattr -d com.apple.quarantine ~/.local/bin/agentgloss`.
 
-> Renaming from mdreview: the config directory is now `~/.config/agentgloss`; an existing `~/.config/mdreview` is not read. Old `<!-- mdreview:* -->` marker blocks are not recognized; re-run `agentgloss install <agent>` to install the new recipes.
+> Renaming from mdreview: the config directory is now `~/.config/agentgloss` (`~/Library/Application Support/agentgloss` on macOS); an existing `~/.config/mdreview` is not read. Old `<!-- mdreview:* -->` marker blocks are not recognized; delete the old block, then re-run `agentgloss install <agent>` to install the new recipes.
 
 ## Build
 
@@ -205,7 +205,7 @@ Writes are atomic. Corrupt JSON is backed up to `<sidecar>.bak.<timestamp>`. Unk
 
 ## Configuration
 
-Optional `~/.config/agentgloss/config.toml`:
+Optional config file: `~/.config/agentgloss/config.toml` on Linux, or `~/Library/Application Support/agentgloss/config.toml` on macOS:
 
 ```toml
 keys = "vim"            # vim | standard
@@ -256,7 +256,7 @@ tmux send-keys -t agentgloss q
 
 ## Known limitations
 
-- The name collides with the existing Python `agentgloss`.
+- The former name `mdreview` collides with an existing Python/Textual project.
 - Media cache is in-memory; disk caching and an LRU bound are deferred.
 - `mermaid-rs-renderer` is pre-1.0; use `mmdc` for official fidelity.
 - Remote image fetching, ACP/MCP, CI gating, comment threads, and full Vim emulation are out of scope; remote URLs render as link-styled text.

@@ -147,7 +147,7 @@ The build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host buil
 
 ## 12. Validation
 
-- 84 library tests, 15 CLI integration tests, 31 TUI integration tests, and 1 performance test pass (131 total); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
+- 98 library tests, 15 CLI integration tests, 32 TUI integration tests, and 1 performance test pass (146 total); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
 - Additional coverage includes tmux feedback/abort exit codes, custom sidecars, export locking, stale approval status, reattachment, narrow-terminal overlays, mouse hit-testing, content-addressed media caching, grapheme-safe wrapping, and a 2,000-line performance test.
 - PTY smoke test: a real tmux pane rendered the document, Mermaid, and image placeholder, accepted `q`, restored the terminal, and exited with code 1 (aborted).
 - Fake-tmux integration test verifies popup and detached command construction.
@@ -156,7 +156,7 @@ The build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host buil
 
 ## 13. Known limitations
 
-- The working name collides with an existing Python tool.
+- The former name `mdreview` collides with an existing Python/Textual project.
 - Media cache is in-memory only; disk caching and an LRU bound are deferred.
 - `mermaid-rs-renderer` is pre-1.0 and may differ from mermaid-cli; `mmdc` is the escape hatch.
 - tmux 3.2a cannot use Sixel; Terax has no inline graphics protocol.

@@ -20,4 +20,5 @@ jobs:
       - run: cargo test --all-features
       - run: sh tests/package.sh
       - run: sh tests/install.sh
+      - run: sh tests/docs.sh
       - run: sh tests/workflows.sh

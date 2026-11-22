@@ -21,6 +21,10 @@ grep -Fq "github.event_name == 'push'" "$release"
 grep -q 'publish-crates' "$release"
 grep -q 'CARGO_REGISTRY_TOKEN' "$release"
 grep -q 'cargo publish --locked' "$release"
+grep -q 'verify-tag' "$release"
+grep -q 'merge-base --is-ancestor' "$release"
+grep -q 'origin/main' "$release"
+grep -q 'fetch-depth: 0' "$release"
 
 if python3 -c 'import yaml' 2>/dev/null; then
     python3 -c 'import sys, yaml; [yaml.safe_load(open(p)) for p in sys.argv[1:]]' "$ci" "$release"

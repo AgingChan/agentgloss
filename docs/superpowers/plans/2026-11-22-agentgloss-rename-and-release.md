@@ -423,12 +423,13 @@ Trigger on `push` of tags `v*` and on `workflow_dispatch`. `permissions: content
   - `ubuntu-latest` / `x86_64-unknown-linux-musl` / `agentgloss-x86_64-unknown-linux-musl.tar.gz`
   - `macos-15` / `aarch64-apple-darwin` / `agentgloss-aarch64-apple-darwin.tar.gz`
   Steps: checkout; Rust stable with `targets: ${{ matrix.target }}`; `cargo build --release --locked --target ${{ matrix.target }}`; strip (`strip` on Linux, `strip -x` plus `codesign --force --sign -` on macOS); stage `agentgloss`, `LICENSE`, `README.md` into `dist/`; `tar -czf "${{ matrix.archive }}" -C dist .`; upload the archive with `actions/upload-artifact@v4`.
-- `release` job (needs `test` and `build`, `if: startsWith(github.ref, 'refs/tags/v')`):
+- `verify-tag` job (tag pushes only): checkout with `fetch-depth: 0`, `git fetch origin main --no-tags`, and `git merge-base --is-ancestor "$GITHUB_SHA" origin/main`; `release` and `publish-crates` depend on it.
+- `release` job (needs `test`, `build`, and `verify-tag`, `if: startsWith(github.ref, 'refs/tags/v')`):
   - Checkout; version guard: `test "v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" = "$GITHUB_REF_NAME"`.
   - `actions/download-artifact@v4` with `merge-multiple: true` into `dist/`.
   - `cd dist && sha256sum *.tar.gz > SHA256SUMS`.
   - `gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes`, then `gh release upload "$GITHUB_REF_NAME" dist/* --clobber`, with `GH_TOKEN: ${{ github.token }}`.
-- `publish-crates` job (needs `test` and `release`, tag pushes only): install Rust with the musl target, then `cargo publish --locked` with `CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}`; skip when `https://crates.io/api/v1/crates/agentgloss/<version>` already exists. `tests/workflows.sh` asserts the job, the secret, and the publish command.
+- `publish-crates` job (needs `test`, `release`, and `verify-tag`, tag pushes only): install Rust with the musl target, then `cargo publish --locked` with `CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}`; skip when `https://crates.io/api/v1/crates/agentgloss/<version>` already exists. `tests/workflows.sh` asserts the job, the secret, the publish command, and the main-ancestry guard.
 
 - [ ] **Step 4: Verify**
 
@@ -533,6 +534,8 @@ Expected: test and build jobs pass; downloadable artifacts exist for both target
 git switch main && git pull
 git tag v0.1.0
 git push origin v0.1.0
+```
+The `verify-tag` job fails unless the tagged commit is an ancestor of `main`.
 gh run watch <release-run-id>
 gh release view v0.1.0
 ```

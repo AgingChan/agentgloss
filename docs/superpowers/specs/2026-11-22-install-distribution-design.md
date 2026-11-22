@@ -71,6 +71,7 @@ Each tarball contains `agentgloss`, `LICENSE`, and `README.md` at its root.
 - Triggers: push of a `v*` tag; `workflow_dispatch` builds artifacts without publishing a release.
 - Job `test` (ubuntu): fmt, clippy, full tests, installer tests. Release requires this job.
 - Job `build` (matrix): one leg per target above, on the matching native runner. Steps: install Rust stable with the target, `cargo build --release --locked --target <target>`, strip (Linux `strip`; macOS `strip -x`), ad-hoc codesign on macOS (`codesign --force --sign -`), stage the tarball, upload it as a workflow artifact.
+- Job `verify-tag` (tag pushes only): fail unless the tagged commit is an ancestor of `origin/main`; `release` and `publish-crates` depend on it.
 - Job `release`: download all tarballs, write `SHA256SUMS` with `sha256sum`, create the GitHub Release for the tag and upload the four assets. `permissions: contents: write`. On `workflow_dispatch`, stop after uploading workflow artifacts.
 - Job `publish-crates` (needs `test` and `release`, tag pushes only): `cargo publish --locked` with `CARGO_REGISTRY_TOKEN` from the repository secret. It skips a version that is already on crates.io so a tag re-run is idempotent.
 - A version guard fails the run if the tag is not `v` + the `Cargo.toml` version.
@@ -116,7 +117,7 @@ Add an Install section before Build:
 ## Release procedure (maintainer)
 
 1. Ensure `main` is green and `Cargo.toml` version is correct; update `CHANGELOG.md`.
-2. `git tag v0.1.0 && git push origin v0.1.0`.
+2. `git tag v0.1.0 && git push origin v0.1.0` from `main`; the workflow refuses a tag whose commit is not an ancestor of `main`.
 3. The release workflow builds the two tarballs, writes `SHA256SUMS`, and publishes the GitHub Release.
 4. The workflow publishes to crates.io using `CARGO_REGISTRY_TOKEN`; ensure the repository secret exists before tagging.
 5. Verify: `curl ... | sh` on Linux and Apple Silicon; `cargo install agentgloss` in a clean environment.

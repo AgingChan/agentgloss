@@ -2,10 +2,10 @@
 
 ## Prompt format
 
-`mdreview export <file>` prints a numbered, paste-ready review. Open and stale items are included by default; resolved items only with `--all`.
+`agentgloss export <file>` prints a numbered, paste-ready review. Open and stale items are included by default; resolved items only with `--all`.
 
 ```markdown
-# mdreview review
+# agentgloss review
 
 - File: docs/specs/checkout.md
 - Round: 2
@@ -16,7 +16,7 @@
 
 Address the items below. Answer every comment and accept or reject every suggestion.
 After editing, mark fixed items resolved:
-  mdreview resolve docs/specs/checkout.md c1 c2
+  agentgloss resolve docs/specs/checkout.md c1 c2
 
 ## 1. [c1] comment — open — lines 42-44
 Heading: Architecture > Data flow
@@ -40,7 +40,7 @@ Anchor: bytes 4000-4012
 Approved output:
 
 ```markdown
-# mdreview review
+# agentgloss review
 
 - File: docs/specs/checkout.md
 - Round: 2

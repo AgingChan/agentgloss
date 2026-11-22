@@ -18,3 +18,6 @@ Initial MVP:
 - Asynchronous media workers and content-addressed in-memory caching
 - Static musl release binary
 - Local TDD harness with gate, plan, QA, and report scripts
+- Renamed from mdreview to agentgloss; the crate, binary, and commands are now `agentgloss`
+- Config and cache directories moved to `agentgloss`; an existing `~/.config/mdreview` is not read
+- Agent marker blocks and generated recipe file names changed; re-run `agentgloss install <agent>`

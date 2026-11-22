@@ -3,17 +3,17 @@
 ## Commands
 
 ```
-mdreview review <file> [--keys vim|standard] [--no-mouse]
+agentgloss review <file> [--keys vim|standard] [--no-mouse]
                        [--protocol auto|kitty|iterm2|sixel|halfblocks]
                        [--theme auto|dark|light] [--sidecar <path>]
                        [--tmux] [--detach]
-mdreview request <file>
-mdreview wait <file> [--timeout <secs>] [--interval <millis>]
-mdreview export <file> [--format prompt|json] [--all]
-mdreview status <file> [--json]
-mdreview resolve <file> <id>...
-mdreview install <claude|codex|gemini|generic> [--dir <dir>]
-mdreview __tui <file> [review options]   # hidden tmux entry point
+agentgloss request <file>
+agentgloss wait <file> [--timeout <secs>] [--interval <millis>]
+agentgloss export <file> [--format prompt|json] [--all]
+agentgloss status <file> [--json]
+agentgloss resolve <file> <id>...
+agentgloss install <claude|codex|gemini|generic> [--dir <dir>]
+agentgloss __tui <file> [review options]   # hidden tmux entry point
 ```
 
 ## Exit codes
@@ -36,7 +36,7 @@ mdreview __tui <file> [review options]   # hidden tmux entry point
 
 ## Config
 
-`~/.config/mdreview/config.toml` is optional:
+`~/.config/agentgloss/config.toml` is optional:
 
 ```toml
 keys = "vim"            # vim | standard
@@ -44,7 +44,7 @@ mouse = true
 protocol = "auto"       # auto | kitty | iterm2 | sixel | halfblocks
 theme = "auto"          # auto | dark | light
 mermaid_engine = "auto" # auto | rust | mmdc | source
-cache_dir = "~/.cache/mdreview"
+cache_dir = "~/.cache/agentgloss"
 ```
 
 CLI flags override config. Unknown keys warn, never crash. No network.

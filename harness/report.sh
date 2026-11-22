@@ -9,7 +9,7 @@ cd "$PROJECT_ROOT"
 source scripts/env.sh
 
 echo "╔══════════════════════════════════════════╗"
-echo "║         mdreview — Project Report        ║"
+echo "║         agentgloss — Project Report        ║"
 echo "╠══════════════════════════════════════════╣"
 echo ""
 
@@ -65,7 +65,7 @@ if find src -name '*.rs' 2>/dev/null | grep -q .; then
     echo -n "│  cargo fmt: "
     if cargo fmt --check >/dev/null 2>&1; then echo "✓ clean"; else echo "⚠ needed"; fi
     echo -n "│  cargo test: "
-    if cargo test --all-features >/tmp/mdreview-report-test.log 2>&1; then
+    if cargo test --all-features >/tmp/agentgloss-report-test.log 2>&1; then
         echo "✓ pass"
     else
         echo "✗ fail"

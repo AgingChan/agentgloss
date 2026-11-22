@@ -73,7 +73,7 @@ print(sum(1 for t in data.get('tasks', []) if t['status'] in ('pending', 'in_pro
     return "$errors"
 }
 
-echo "=== mdreview Harness Loop ==="
+echo "=== agentgloss Harness Loop ==="
 echo "Project: $PROJECT_ROOT"
 echo "Max sessions: $([ "$MAX_SESSIONS" -gt 0 ] && echo "$MAX_SESSIONS" || echo unlimited)"
 echo "Stop on fail: $STOP_ON_FAIL"

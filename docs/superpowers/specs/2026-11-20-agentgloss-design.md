@@ -1,8 +1,8 @@
-# mdreview — Terminal Spec Reviewer Design
+# agentgloss — Terminal Spec Reviewer Design
 
 - **Date:** 2026-11-20 (updated 2026-11-21)
-- **Status:** MVP complete; 131 automated tests passing; final QA pass has no critical or major findings
-- **Working name:** `mdreview` (collides with an existing Python/Textual tool named mdreview; final name to be decided)
+- **Status:** MVP complete; 146 automated tests passing; final QA pass has no critical or major findings
+- **Name:** agentgloss (formerly mdreview, which collides with an existing Python/Textual project)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 
 ## 1. Problem
@@ -24,7 +24,7 @@ Reviewing long agent-generated specs and plans in a terminal is awkward. Scrollb
 | Media | Local images and Mermaid diagrams render inline. Rust Mermaid renderer is the default; mermaid-cli is an optional fidelity override. Remote image fetching is out of scope; URLs render as link-styled text. |
 | Input | Vim modal bindings, standard keyboard mode, and mouse. Runtime switch between input modes. |
 | Network | None by default. No remote image fetching, telemetry, or cloud service. |
-| Name | `mdreview` is a working name; the collision with an existing project is noted. |
+| Name | agentgloss; formerly mdreview, which collides with an existing project. |
 
 ## 3. Market context (November 2026)
 
@@ -39,11 +39,11 @@ Reviewing long agent-generated specs and plans in a terminal is awkward. Scrollb
 
 ## 4. Workflow
 
-1. The agent writes or updates a spec (for example `docs/specs/checkout.md`) and reaches a review checkpoint. It runs `mdreview request <file>`, which records the request and tells the agent that review is pending.
+1. The agent writes or updates a spec (for example `docs/specs/checkout.md`) and reaches a review checkpoint. It runs `agentgloss request <file>`, which records the request and tells the agent that review is pending.
 2. The human reviews through one of three paths:
-   - **Standalone:** `mdreview review <file>` in any terminal pane.
-   - **Handshake:** the agent asks the human to run the command, then collects feedback with `mdreview export <file>` or `mdreview wait <file>`.
-   - **tmux:** the agent runs `mdreview review <file> --tmux`; a popup opens, and signoff returns the prompt to the agent. `--detach` returns immediately for agents that cannot block.
+   - **Standalone:** `agentgloss review <file>` in any terminal pane.
+   - **Handshake:** the agent asks the human to run the command, then collects feedback with `agentgloss export <file>` or `agentgloss wait <file>`.
+   - **tmux:** the agent runs `agentgloss review <file> --tmux`; a popup opens, and signoff returns the prompt to the agent. `--detach` returns immediately for agents that cannot block.
 3. On signoff the sidecar is saved, a numbered prompt is emitted, and the exit code tells the agent whether there is feedback or a clean approval.
 4. The agent revises, optionally marks IDs resolved, and requests round two. Open comments re-anchor to the new text; resolved comments archive; comments whose anchors cannot be found become stale.
 5. The human can quit mid-review. Drafts autosave, and the next launch resumes.
@@ -133,7 +133,7 @@ Re-anchoring tries exact quote matches (scored by context and distance), then wh
 
 Commands: `review`, `request`, `wait`, `export`, `status`, `resolve`, `install`, and the hidden `__tui` entry used by tmux.
 
-The tmux adapter uses `tmux display-popup -E` for a blocking review and `tmux new-window -d` for detach. Install recipes write `.claude/commands/mdreview-review.md`, marker blocks in `AGENTS.md`/`GEMINI.md`, or a standalone generic recipe; re-running is idempotent.
+The tmux adapter uses `tmux display-popup -E` for a blocking review and `tmux new-window -d` for detach. Install recipes write `.claude/commands/agentgloss-review.md`, marker blocks in `AGENTS.md`/`GEMINI.md`, or a standalone generic recipe; re-running is idempotent.
 
 The local harness mirrors `sotto/harness`:
 

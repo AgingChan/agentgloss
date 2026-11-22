@@ -2,3 +2,6 @@
 *.review.json
 *.review.json.lock
 *.review.json.bak.*
+
+.claude/
+.superpowers/

@@ -51,11 +51,11 @@ QA_OUTPUT=$(mktemp)
 trap 'rm -f "$PROMPT_FILE" "$QA_OUTPUT"' EXIT
 
 {
-    printf '# mdreview QA Evaluator Pass\n\n'
+    printf '# agentgloss QA Evaluator Pass\n\n'
     printf '%s\n\n' "${TASK_FILTER:-Evaluate ALL recently completed tasks.}"
     printf '## Current gate output\n\n```\n%s\n```\n\n' "$GATE_OUTPUT"
     cat <<'PROMPT'
-You are a skeptical QA evaluator for mdreview, a Rust terminal Markdown spec reviewer.
+You are a skeptical QA evaluator for agentgloss, a Rust terminal Markdown spec reviewer.
 
 ## Your Job
 1. Read `state/tasks.json` for completed tasks.
@@ -107,7 +107,7 @@ if [ "$CLAUDE_STATUS" -ne 0 ]; then
     cat "$QA_LOG"
     exit 1
 fi
-if [ ! -s "$QA_LOG" ] || ! grep -q '^# mdreview QA Evaluator Pass' "$QA_LOG"; then
+if [ ! -s "$QA_LOG" ] || ! grep -q '^# agentgloss QA Evaluator Pass' "$QA_LOG"; then
     echo "ERROR: QA output is empty or malformed; raw output follows"
     cat "$QA_OUTPUT"
     exit 1

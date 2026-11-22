@@ -5,7 +5,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 source scripts/env.sh
 
-echo "=== mdreview init ==="
+echo "=== agentgloss init ==="
 echo "OS: $(uname -s)"
 echo "Project: $PROJECT_ROOT"
 echo "Rust: $(rustc --version)"

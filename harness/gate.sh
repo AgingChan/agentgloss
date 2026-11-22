@@ -9,7 +9,7 @@ source "$PROJECT_ROOT/scripts/env.sh" || { echo "GATE: cannot load build environ
 ERRORS=0
 WARNINGS=0
 
-echo "=== mdreview Inter-Session Gate ==="
+echo "=== agentgloss Inter-Session Gate ==="
 echo ""
 
 # 1. tasks.json integrity
@@ -95,11 +95,11 @@ fi
 
 # 5. Shell syntax for the harness and build entry points
 echo -n "  shell syntax: "
-if bash -n init.sh scripts/env.sh harness/*.sh 2>/tmp/mdreview-shell.log; then
+if bash -n init.sh scripts/env.sh harness/*.sh 2>/tmp/agentgloss-shell.log; then
     echo "OK"
 else
     echo "FAIL"
-    tail -10 /tmp/mdreview-shell.log
+    tail -10 /tmp/agentgloss-shell.log
     ERRORS=$((ERRORS + 1))
 fi
 
@@ -116,30 +116,30 @@ if find src -name '*.rs' 2>/dev/null | grep -q .; then
     fi
 
     echo -n "  cargo fmt: "
-    if cargo fmt --check >/tmp/mdreview-fmt.log 2>&1; then
+    if cargo fmt --check >/tmp/agentgloss-fmt.log 2>&1; then
         echo "OK"
     else
         echo "FAIL"
-        tail -10 /tmp/mdreview-fmt.log
+        tail -10 /tmp/agentgloss-fmt.log
         ERRORS=$((ERRORS + 1))
     fi
 
     echo -n "  cargo clippy: "
-    if cargo clippy --all-targets --all-features -- -D warnings >/tmp/mdreview-clippy.log 2>&1; then
+    if cargo clippy --all-targets --all-features -- -D warnings >/tmp/agentgloss-clippy.log 2>&1; then
         echo "OK"
     else
         echo "FAIL"
-        tail -20 /tmp/mdreview-clippy.log
+        tail -20 /tmp/agentgloss-clippy.log
         ERRORS=$((ERRORS + 1))
     fi
 
     echo -n "  cargo test: "
-    if cargo test --all-features >/tmp/mdreview-test.log 2>&1; then
+    if cargo test --all-features >/tmp/agentgloss-test.log 2>&1; then
         echo "OK"
-        grep -E '^test result:' /tmp/mdreview-test.log | sed 's/^/    /'
+        grep -E '^test result:' /tmp/agentgloss-test.log | sed 's/^/    /'
     else
         echo "FAIL"
-        tail -30 /tmp/mdreview-test.log
+        tail -30 /tmp/agentgloss-test.log
         ERRORS=$((ERRORS + 1))
     fi
 fi

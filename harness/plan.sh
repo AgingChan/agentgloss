@@ -15,17 +15,17 @@ if ! command -v claude >/dev/null 2>&1; then
 fi
 
 PLAN_LOG="$LOG_DIR/plan-$(date +%Y%m%d-%H%M%S).log"
-echo "=== mdreview Plan Regeneration ==="
+echo "=== agentgloss Plan Regeneration ==="
 echo "Log: $PLAN_LOG"
 echo ""
 
 cat <<'PROMPT' | claude --print 2>&1 | tee "$PLAN_LOG"
-# mdreview Plan Regeneration
+# agentgloss Plan Regeneration
 
 Regenerate `state/fix_plan.md` by comparing the specs against the current implementation.
 
 ## Steps
-1. Read every file in `specs/` and `docs/superpowers/specs/2026-11-20-mdreview-design.md`.
+1. Read every file in `specs/` and `docs/superpowers/specs/2026-11-20-agentgloss-design.md`.
 2. Read the source in `src/`.
 3. Read `state/tasks.json` to see what is marked done versus pending.
 4. Compare: identify gaps, incomplete implementations, missing tests, deviations from spec.

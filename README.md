@@ -41,7 +41,7 @@ The installer downloads the latest release, verifies its SHA-256 checksum, and i
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
-  | sh -s -- --version v0.1.0 --dir "$HOME/bin"
+  | sh -s -- --version v0.1.1 --dir "$HOME/bin"
 ```
 
 Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
@@ -182,10 +182,11 @@ Mouse: click to place the cursor, drag to select, wheel to scroll, click outline
 | --- | --- |
 | Kitty, Ghostty | Kitty graphics |
 | WezTerm | iTerm2 graphics (Kitty-capable too) |
+| Warp | iTerm2 inline images; no Sixel |
 | Windows Terminal (WSL2) | Sixel when the terminal build supports it |
 | foot, mlterm, xterm | Sixel |
 | tmux 3.2a | half-blocks or Kitty placeholders with passthrough; no Sixel |
-| Terax (xterm.js) | half-blocks |
+| Terax 0.9 | half-blocks; it parses Kitty placements but does not render them yet |
 | Alacritty | half-blocks |
 
 Protocol detection is environment-based and can be overridden with `--protocol`. The interactive stdio query was intentionally removed: its reader thread stole keyboard input during PTY testing.

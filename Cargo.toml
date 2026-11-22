@@ -1,6 +1,6 @@
 [package]
 name = "agentgloss"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A terminal reviewer for long Markdown specs and agent-generated plans"
 license = "MIT"

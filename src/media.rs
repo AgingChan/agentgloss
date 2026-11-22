@@ -535,7 +535,9 @@ fn detect_protocol_from(get: impl Fn(&str) -> Option<String>) -> ProtocolType {
     }
     if get("WEZTERM_EXECUTABLE").is_some()
         || get("TERM_PROGRAM").is_some_and(|value| {
-            value.eq_ignore_ascii_case("wezterm") || value.eq_ignore_ascii_case("iterm.app")
+            value.eq_ignore_ascii_case("wezterm")
+                || value.eq_ignore_ascii_case("iterm.app")
+                || value.eq_ignore_ascii_case("warpterminal")
         })
     {
         return ProtocolType::Iterm2;
@@ -545,7 +547,13 @@ fn detect_protocol_from(get: impl Fn(&str) -> Option<String>) -> ProtocolType {
             value.contains("sixel") || value.contains("foot") || value.contains("mlterm")
         })
     {
-        return ProtocolType::Sixel;
+        // tmux 3.2a cannot display Sixel even when the outer terminal supports
+        // it; half-blocks always work.
+        return if get("TMUX").is_some() {
+            ProtocolType::Halfblocks
+        } else {
+            ProtocolType::Sixel
+        };
     }
     ProtocolType::Halfblocks
 }
@@ -931,6 +939,12 @@ mod tests {
         assert!(matches!(wt, ProtocolType::Sixel));
         let foot = detect_protocol_from(|key| (key == "TERM").then(|| "xterm-foot".into()));
         assert!(matches!(foot, ProtocolType::Sixel));
+        let tmux_sixel =
+            detect_protocol_from(|key| (key == "WT_SESSION" || key == "TMUX").then(|| "1".into()));
+        assert!(matches!(tmux_sixel, ProtocolType::Halfblocks));
+        let warp =
+            detect_protocol_from(|key| (key == "TERM_PROGRAM").then(|| "WarpTerminal".into()));
+        assert!(matches!(warp, ProtocolType::Iterm2));
         let plain = detect_protocol_from(|_| None);
         assert!(matches!(plain, ProtocolType::Halfblocks));
     }

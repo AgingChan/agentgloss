@@ -61,3 +61,9 @@
 - Addressed the second QA pass majors: portable `F10`/`Ctrl+S` save and signoff bindings (verified in a real PTY), custom-sidecar `--sidecar` in exported resolve commands, and preservation of content before an orphan END marker.
 - Final QA pass (21:57) returned **4 PASS, 9 PARTIAL, 0 FAIL, no critical or major findings**. The remaining PARTIALs are documented minor test-matrix and polish items, not feature blockers.
 - Release evidence: gate PASS with 0 errors/0 warnings, 100% task progress, 131 tests in debug and release profiles, static-pie binary, real PTY save/signoff and tmux popup probes.
+
+## 2026-11-22 — Session 6: shell environment fix
+
+- Fixed `scripts/env.sh` leaking `set -euo pipefail` into the caller's interactive shell. Terax's prompt hook reads `$TERAX_BLOCKS` without a default, so `nounset` made every prompt print `TERAX_BLOCKS: parameter not set`.
+- The script now validates conda and the `rustbuild` environment explicitly, returns on error, and leaves the caller's shell options unchanged.
+- Verified in zsh: sourcing leaves the shell without `nounset`, `TERAX_BLOCKS=unset` is harmless, and `cargo`/`rustc` resolve correctly. Build and full gate still pass (131 tests).

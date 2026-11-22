@@ -21,3 +21,5 @@ Initial MVP:
 - Renamed from mdreview to agentgloss; the crate, binary, and commands are now `agentgloss`
 - Config and cache directories moved to `agentgloss`; an existing `~/.config/mdreview` is not read
 - Agent marker blocks and generated recipe file names changed; re-run `agentgloss install <agent>`
+- Prebuilt Linux x86_64 and macOS Apple Silicon releases with an install script and SHA-256 checksums
+- `cargo install agentgloss` from crates.io

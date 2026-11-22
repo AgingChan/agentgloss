@@ -10,7 +10,7 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
 MVP implemented and tested:
 
-- 84 library tests, 15 CLI integration tests, 31 TUI integration tests, 1 performance test (131 total)
+- 98 library tests, 15 CLI integration tests, 32 TUI integration tests, 1 performance test (146 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
@@ -28,6 +28,39 @@ MVP implemented and tested:
 - Local images, SVG rasterization, and Mermaid (Rust renderer, optional mermaid-cli)
 - Standalone, agent handshake, and tmux launch paths
 - Agent install recipes for Claude Code, Codex, Gemini, and generic CLIs
+
+## Install
+
+Prebuilt binaries are published for Linux x86_64 (static musl) and macOS Apple Silicon. macOS Intel, Windows, and Linux aarch64 are not built.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh | sh
+```
+
+The installer downloads the latest release, verifies its SHA-256 checksum, and installs to `${AGENTGLOSS_INSTALL_DIR:-$HOME/.local/bin}`. Pin a version or choose a directory with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
+  | sh -s -- --version v0.1.0 --dir "$HOME/bin"
+```
+
+Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
+
+Rust users can install from crates.io (this compiles locally and requires a Rust toolchain):
+
+```sh
+cargo install agentgloss
+```
+
+For unreleased code:
+
+```sh
+cargo install --git https://github.com/AgingChan/agentgloss
+```
+
+macOS binaries are ad-hoc signed. If Gatekeeper quarantines the downloaded binary, run `xattr -d com.apple.quarantine ~/.local/bin/agentgloss`.
+
+> Renaming from mdreview: the config directory is now `~/.config/agentgloss`; an existing `~/.config/mdreview` is not read. Old `<!-- mdreview:* -->` marker blocks are not recognized; re-run `agentgloss install <agent>` to install the new recipes.
 
 ## Build
 
@@ -49,6 +82,16 @@ If you already have a working C linker, you can remove `.cargo/config.toml` and 
 file target/x86_64-unknown-linux-musl/release/agentgloss
 # ELF 64-bit LSB pie executable ... static-pie linked
 ```
+
+## Releases
+
+Maintainers publish from `main`:
+
+1. Update `CHANGELOG.md` and the `Cargo.toml` version, then merge the change to `main`.
+2. `git tag v<version> && git push origin v<version>`.
+3. The release workflow builds the Linux and macOS tarballs, writes `SHA256SUMS`, and publishes the GitHub Release.
+4. Run `cargo publish --locked` (requires a one-time `cargo login`).
+5. Verify the installer on Linux x86_64 and Apple Silicon, and `cargo install agentgloss --version <version>` in a clean environment.
 
 ## Quick start
 

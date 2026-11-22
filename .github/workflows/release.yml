@@ -25,6 +25,21 @@ jobs:
       - run: sh tests/docs.sh
       - run: sh tests/workflows.sh
 
+  verify-tag:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify the tag is on main
+        run: |
+          git fetch origin main --no-tags
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Tag $GITHUB_REF_NAME points at $GITHUB_SHA, which is not on main" >&2
+            exit 1
+          fi
+
   build:
     needs: test
     strategy:
@@ -64,7 +79,7 @@ jobs:
           path: ${{ matrix.archive }}
 
   release:
-    needs: [test, build]
+    needs: [test, build, verify-tag]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -88,7 +103,7 @@ jobs:
           gh release upload "$GITHUB_REF_NAME" dist/* --clobber
 
   publish-crates:
-    needs: [test, release]
+    needs: [test, release, verify-tag]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:

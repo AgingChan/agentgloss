@@ -10,7 +10,7 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
 MVP implemented and tested:
 
-- 103 library tests, 15 CLI integration tests, 33 TUI integration tests, 1 performance test (152 total)
+- 104 library tests, 15 CLI integration tests, 33 TUI integration tests, 1 performance test (153 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
@@ -217,6 +217,8 @@ cache_dir = "~/.cache/agentgloss"
 ```
 
 CLI flags override the config file.
+
+For high-DPI terminal images that look soft, set `AGENTGLOSS_CELL_SIZE=WxH` to the terminal's real cell pixel size (for example `20x40`), or `AGENTGLOSS_RENDER_SCALE=2` to supersample the detected cell size. The layout aspect and rasterization use the same cell size. `--protocol` selects the graphics protocol when detection is wrong.
 
 ## Local harness
 

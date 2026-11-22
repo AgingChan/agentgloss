@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Media blocks now fit the document page: Mermaid diagrams and images are scaled to the page width, capped at the viewport height, sized by aspect ratio instead of fixed rows, and centered. Partially scrolled images use sliced protocols.
+- Added `AGENTGLOSS_CELL_SIZE=WxH` and `AGENTGLOSS_RENDER_SCALE=1..4` for high-DPI terminals whose images look soft.
 
 ## 0.1.0 — 2026-11-21
 

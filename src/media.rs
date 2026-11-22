@@ -470,11 +470,32 @@ fn font_database() -> Arc<fontdb::Database> {
 }
 
 fn picker_for(protocol: ProtocolType) -> Picker {
-    let font = terminal_font_size().unwrap_or_else(|| FontSize::new(10, 20));
+    let font = configured_font_size_from(std::env::var("AGENTGLOSS_CELL_SIZE").ok().as_deref())
+        .or_else(terminal_font_size)
+        .unwrap_or_else(|| FontSize::new(10, 20));
+    let scale = render_scale_from(std::env::var("AGENTGLOSS_RENDER_SCALE").ok().as_deref());
+    let font = FontSize::new(
+        font.width.saturating_mul(scale),
+        font.height.saturating_mul(scale),
+    );
     #[allow(deprecated)]
     let mut picker = Picker::from_fontsize(font);
     picker.set_protocol_type(protocol);
     picker
+}
+
+fn configured_font_size_from(value: Option<&str>) -> Option<FontSize> {
+    let (width, height) = value?.split_once('x')?;
+    let width: u16 = width.parse().ok()?;
+    let height: u16 = height.parse().ok()?;
+    (width > 0 && height > 0).then(|| FontSize::new(width, height))
+}
+
+fn render_scale_from(value: Option<&str>) -> u16 {
+    value
+        .and_then(|value| value.parse().ok())
+        .filter(|scale| (1..=4).contains(scale))
+        .unwrap_or(1)
 }
 
 fn terminal_font_size() -> Option<FontSize> {
@@ -912,6 +933,22 @@ mod tests {
         assert!(matches!(foot, ProtocolType::Sixel));
         let plain = detect_protocol_from(|_| None);
         assert!(matches!(plain, ProtocolType::Halfblocks));
+    }
+
+    #[test]
+    fn parses_high_dpi_overrides() {
+        let cell = configured_font_size_from(Some("20x40")).expect("cell size");
+        assert_eq!((cell.width, cell.height), (20, 40));
+        assert!(configured_font_size_from(Some("20X40")).is_none());
+        assert!(configured_font_size_from(Some("0x40")).is_none());
+        assert!(configured_font_size_from(Some("bad")).is_none());
+        assert!(configured_font_size_from(None).is_none());
+        assert_eq!(render_scale_from(None), 1);
+        assert_eq!(render_scale_from(Some("2")), 2);
+        assert_eq!(render_scale_from(Some("4")), 4);
+        assert_eq!(render_scale_from(Some("0")), 1);
+        assert_eq!(render_scale_from(Some("9")), 1);
+        assert_eq!(render_scale_from(Some("x")), 1);
     }
 
     #[test]

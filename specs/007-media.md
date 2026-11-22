@@ -16,6 +16,7 @@
 - Half-blocks are the universal fallback and are always available. The `chafa-dyn` feature is disabled; no libchafa dependency.
 - Kitty/Ghostty/WezTerm: sharp graphics. Terax/xterm.js: half-blocks. tmux: `allow-passthrough` is required beyond half-blocks; tmux 3.2a lacks Sixel. WSL2/Windows Terminal: Sixel only when the terminal build supports it.
 - Derive the terminal cell pixel size from `TIOCGWINSZ` (`window_size`) when columns, rows, and pixel dimensions are present and plausible; otherwise fall back to 10x20. Never query stdio for font size, for the same input-stealing reason.
+- `AGENTGLOSS_CELL_SIZE=WxH` overrides the cell pixel size (for high-DPI terminals or Retina displays that report points); `AGENTGLOSS_RENDER_SCALE=1..4` multiplies it before rasterization/encoding. The layout aspect and rasterization use the same cell size.
 - On resize, invalidate all protocol encodings and force a full repaint.
 - Never draw text over an image rectangle, including blank cells. Clear stale placements when scrolling or resizing.
 

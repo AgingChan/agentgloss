@@ -4,7 +4,7 @@ pub mod layout;
 
 pub use layout::{MediaKind, StyledSpan, VisualKind, VisualLine, layout};
 
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{Alignment, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use sha2::{Digest, Sha256};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -19,6 +19,7 @@ pub enum InlineStyle {
     Link,
     ImageAlt,
     TaskMarker,
+    TableSeparator,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +27,39 @@ pub struct Inline {
     pub text: String,
     pub style: InlineStyle,
     pub source: Range<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableCell {
+    pub inlines: Vec<Inline>,
+    pub source: Range<usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ColumnAlign {
+    #[default]
+    None,
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Table {
+    pub header: Vec<TableCell>,
+    pub rows: Vec<Vec<TableCell>>,
+    pub alignments: Vec<ColumnAlign>,
+}
+
+impl From<Alignment> for ColumnAlign {
+    fn from(value: Alignment) -> Self {
+        match value {
+            Alignment::None => Self::None,
+            Alignment::Left => Self::Left,
+            Alignment::Center => Self::Center,
+            Alignment::Right => Self::Right,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,10 +120,33 @@ pub struct Block {
     pub depth: usize,
     pub quote_depth: usize,
     pub inlines: Vec<Inline>,
+    pub table: Option<Table>,
 }
 
 impl Block {
     pub fn text(&self) -> String {
+        if let Some(table) = &self.table {
+            let mut rows: Vec<&[TableCell]> = Vec::new();
+            if !table.header.is_empty() {
+                rows.push(&table.header);
+            }
+            rows.extend(table.rows.iter().map(Vec::as_slice));
+            let mut text = String::new();
+            for (row_index, row) in rows.iter().enumerate() {
+                if row_index > 0 {
+                    text.push('\n');
+                }
+                for (cell_index, cell) in row.iter().enumerate() {
+                    if cell_index > 0 {
+                        text.push_str(" | ");
+                    }
+                    for inline in &cell.inlines {
+                        text.push_str(&inline.text);
+                    }
+                }
+            }
+            return text;
+        }
         self.inlines.iter().map(|i| i.text.as_str()).collect()
     }
 }
@@ -240,6 +297,7 @@ struct Builder {
     start: usize,
     end: usize,
     inlines: Vec<Inline>,
+    table: Option<Table>,
     depth: usize,
     quote_depth: usize,
     image: Option<(String, String, Option<String>)>,
@@ -257,6 +315,7 @@ impl Builder {
             start,
             end: start,
             inlines: Vec::new(),
+            table: None,
             depth,
             quote_depth,
             image: None,
@@ -314,6 +373,7 @@ impl Builder {
             depth: self.depth,
             quote_depth: self.quote_depth,
             inlines: self.inlines,
+            table: self.table,
         };
         blocks.push(block);
     }
@@ -336,9 +396,9 @@ struct BlockParser<'a> {
     heading_stack: Vec<(u8, String)>,
     quote_depth: usize,
     paragraph_in_item: bool,
-    table_rows: Vec<Vec<(String, Range<usize>)>>,
-    current_row: Vec<(String, Range<usize>)>,
-    current_cell: String,
+    table: Option<Table>,
+    current_row: Vec<TableCell>,
+    current_cell_inlines: Vec<Inline>,
     current_cell_range: Option<Range<usize>>,
     in_table: bool,
     in_image: bool,
@@ -367,9 +427,9 @@ impl<'a> BlockParser<'a> {
             heading_stack: Vec::new(),
             quote_depth: 0,
             paragraph_in_item: false,
-            table_rows: Vec::new(),
+            table: None,
             current_row: Vec::new(),
-            current_cell: String::new(),
+            current_cell_inlines: Vec::new(),
             current_cell_range: None,
             in_table: false,
             in_image: false,
@@ -454,9 +514,14 @@ impl<'a> BlockParser<'a> {
             if let Some(existing) = self.current_cell_range.as_mut() {
                 existing.end = existing.end.max(range.end);
             } else {
-                self.current_cell_range = Some(range);
+                self.current_cell_range = Some(range.clone());
             }
-            self.current_cell.push_str(text);
+            let style = style_override.unwrap_or_else(|| self.style());
+            self.current_cell_inlines.push(Inline {
+                text: text.to_string(),
+                style,
+                source: range,
+            });
             return;
         }
         if self.in_image {
@@ -508,7 +573,8 @@ impl<'a> BlockParser<'a> {
                 self.append_text(&text, range, Some(InlineStyle::Plain));
             }
             Event::SoftBreak | Event::HardBreak => {
-                self.append_text("\n", range, None);
+                let text = if self.in_table { " " } else { "\n" };
+                self.append_text(text, range, None);
             }
             Event::Rule => {
                 self.finish_current();
@@ -603,12 +669,15 @@ impl<'a> BlockParser<'a> {
                 };
                 self.start_block(BlockKind::ListItem { ordered, marker }, range.start);
             }
-            Tag::Table(_) => {
+            Tag::Table(alignments) => {
                 self.finish_current();
                 self.in_table = true;
-                self.table_rows.clear();
+                self.table = Some(Table {
+                    alignments: alignments.into_iter().map(ColumnAlign::from).collect(),
+                    ..Default::default()
+                });
                 self.current_row.clear();
-                self.current_cell.clear();
+                self.current_cell_inlines.clear();
                 self.current_cell_range = None;
                 self.start_block(BlockKind::Table, range.start);
             }
@@ -617,7 +686,7 @@ impl<'a> BlockParser<'a> {
                 self.current_row.clear();
             }
             Tag::TableCell => {
-                self.current_cell.clear();
+                self.current_cell_inlines.clear();
                 self.current_cell_range = None;
             }
             Tag::FootnoteDefinition(_) => {
@@ -722,46 +791,42 @@ impl<'a> BlockParser<'a> {
             }
             TagEnd::Table => {
                 self.in_table = false;
-                let rows = std::mem::take(&mut self.table_rows);
+                let table = self.table.take();
                 if let Some(builder) = self.current.as_mut() {
                     builder.end = range.end;
-                    for (row_index, row) in rows.iter().enumerate() {
-                        if row_index > 0 {
-                            builder.push_inline("\n", InlineStyle::Plain, range.clone());
-                        }
-                        for (cell_index, (cell, cell_range)) in row.iter().enumerate() {
-                            if cell_index > 0 {
-                                builder.push_inline(" | ", InlineStyle::Plain, range.clone());
-                            }
-                            builder.push_inline(cell, InlineStyle::Plain, cell_range.clone());
-                        }
-                        if row_index == 0 {
-                            builder.push_inline("\n", InlineStyle::Plain, range.clone());
-                            let separator =
-                                row.iter().map(|_| "---").collect::<Vec<_>>().join(" | ");
-                            builder.push_inline(&separator, InlineStyle::Plain, range.clone());
-                        }
-                    }
+                    builder.table = table;
                 }
+                self.current_row.clear();
+                self.current_cell_inlines.clear();
+                self.current_cell_range = None;
                 self.finish_current();
             }
             TagEnd::TableHead => {
                 if !self.current_row.is_empty() {
-                    self.table_rows.push(std::mem::take(&mut self.current_row));
+                    let row = std::mem::take(&mut self.current_row);
+                    if let Some(table) = self.table.as_mut() {
+                        table.header = row;
+                    }
                 }
             }
             TagEnd::TableRow => {
                 if !self.current_row.is_empty() {
-                    self.table_rows.push(std::mem::take(&mut self.current_row));
+                    let row = std::mem::take(&mut self.current_row);
+                    if let Some(table) = self.table.as_mut() {
+                        table.rows.push(row);
+                    }
                 }
             }
             TagEnd::TableCell => {
-                let cell = std::mem::take(&mut self.current_cell);
-                let cell_range = self
+                let source = self
                     .current_cell_range
                     .take()
                     .unwrap_or_else(|| range.clone());
-                self.current_row.push((cell, cell_range));
+                let cell = TableCell {
+                    inlines: std::mem::take(&mut self.current_cell_inlines),
+                    source,
+                };
+                self.current_row.push(cell);
             }
             TagEnd::FootnoteDefinition => {
                 if let Some(builder) = self.current.as_mut() {
@@ -845,13 +910,17 @@ mod tests {
             .find(|b| matches!(b.kind, BlockKind::Table))
             .expect("table");
         assert!(table.text().contains("a | b"));
-        let cells: Vec<_> = table
-            .inlines
-            .iter()
-            .filter(|inline| matches!(inline.text.as_str(), "a" | "b" | "1" | "2"))
-            .collect();
-        assert_eq!(cells.len(), 4);
-        assert!(cells.iter().all(|cell| cell.source.start < cell.source.end));
+        let data = table.table.as_ref().expect("structured table");
+        assert_eq!(data.header.len(), 2);
+        assert_eq!(data.header[0].inlines[0].text, "a");
+        assert_eq!(data.rows[0][0].inlines[0].text, "1");
+        assert_eq!(data.rows[0][1].inlines[0].text, "2");
+        assert!(
+            data.header
+                .iter()
+                .chain(data.rows.iter().flatten())
+                .all(|cell| cell.source.start < cell.source.end)
+        );
         let code = d
             .blocks
             .iter()
@@ -861,6 +930,24 @@ mod tests {
             matches!(code.kind, BlockKind::CodeBlock { ref lang } if lang.as_deref() == Some("rust"))
         );
         assert!(code.text().contains("fn main"));
+    }
+
+    #[test]
+    fn table_retains_styles_alignments_and_ranges() {
+        let d = doc("| Name | Value |\n|:---|---:|\n| **bold** | `code` |\n");
+        let table = d.blocks[0].table.as_ref().expect("structured table");
+        assert_eq!(
+            table.alignments,
+            vec![ColumnAlign::Left, ColumnAlign::Right]
+        );
+        assert_eq!(table.header[0].inlines[0].text, "Name");
+        let row = &table.rows[0];
+        assert_eq!(row[0].inlines[0].style, InlineStyle::Strong);
+        assert_eq!(row[0].inlines[0].text, "bold");
+        assert_eq!(row[1].inlines[0].style, InlineStyle::Code);
+        assert_eq!(row[1].inlines[0].text, "code");
+        assert!(row[1].source.start < row[1].source.end);
+        assert!(d.source[row[1].source.clone()].contains("code"));
     }
 
     #[test]

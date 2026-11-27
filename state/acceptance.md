@@ -1,13 +1,13 @@
 # agentgloss acceptance matrix
 
 Evidence was refreshed on 2026-11-28 on macOS arm64 (Rust 1.100, host target
-`aarch64-apple-darwin`). The v0.2.0 release gate covers the static musl build,
+`aarch64-apple-darwin`). The v0.2.1 release gate covers the static musl build,
 the editor bridge, and the VS Code extension without changing the sidecar
 schema.
 
 Counts: 128 library, 16 CLI integration, 35 TUI integration, 11 bridge
 integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
-17 VS Code extension tests (208 automated tests total).
+19 VS Code extension tests (210 automated tests total).
 
 | Feature | Evidence |
 | --- | --- |
@@ -24,7 +24,8 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
 | Agent handshake | `tests/cli.rs::request_status_export_resolve_flow`, `wait_returns_feedback_and_times_out`, `wait_returns_approval`, `resolve_validates_the_document`; recipe tests in `agent::tests` including duplicate/orphan marker handling |
 | tmux adapter | `tests/cli.rs::tmux_adapter_builds_popup_and_detach_commands`; sentinel propagation and result-file fallback |
 | Editor bridge | `tests/bridge.rs`: state purity, sync idempotence, comment/suggestion/edit/resolve/unresolve/delete/reattach/signoff, expect-hash and line-range validation, lock behaviour, corrupt/v2 sidecars, CRLF and missing-newline selections, custom sidecars |
-| VS Code extension | 17 Vitest/jsdom tests for annotation ranges, selection reduction, bridge envelopes, link/image security; `npm run check`, `npm run build`, and `npm run package` pass; VSIX installs into an isolated VS Code 1.145 profile |
+| VS Code extension | 19 Vitest/jsdom tests for annotation ranges, selection reduction, bridge envelopes, link/image security, and the manifest menu/icon contributions; `npm run check`, `npm run build`, and `npm run package` pass; VSIX installs into an isolated VS Code 1.145 profile |
+| VS Code entry points | Editor-title preview button, Explorer file context menu, editor-tab context menu, and editor context menu are declared in `vscode/package.json`; `test/manifest.test.ts` guards the contributions |
 
 ## Manual checks
 
@@ -33,7 +34,7 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
 2. Bridge end-to-end flow is covered by `tests/bridge.rs` and was exercised
    against a temporary spec; sidecars remain schema version 1.
 3. VSIX built (1 MB) and installed with
-   `code --install-extension vscode/agentgloss-0.2.0.vsix --force` into an
+   `code --install-extension vscode/agentgloss-0.2.1.vsix --force` into an
    isolated profile.
 4. PTY close check passed on 2026-11-28: a `script` PTY ran the TUI, SIGHUP
    produced exit 1, and the sidecar was saved. The panic-hook/mouse-cleanup
@@ -42,7 +43,7 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
    extension-host errors. Remaining manual/visual check before a release: open
    the webview in a real VS Code window and exercise the rendered selection →
    signoff flow, including Mermaid fidelity.
-6. The static musl release gate is v0.2.0; this pass was verified on the macOS
+6. The static musl release gate is v0.2.1; this pass was verified on the macOS
    host target before tagging.
 
 ## Verdict (2026-11-28)

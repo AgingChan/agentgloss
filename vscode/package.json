@@ -2,7 +2,7 @@
   "name": "agentgloss",
   "displayName": "agentgloss Review",
   "description": "Review Markdown specs and agent plans with comments, suggested edits, and crisp Mermaid diagrams.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "agingchan",
   "license": "MIT",
   "repository": {
@@ -32,7 +32,8 @@
       {
         "command": "agentgloss.openReview",
         "title": "Open Review",
-        "category": "agentgloss"
+        "category": "agentgloss",
+        "icon": "$(open-preview)"
       },
       {
         "command": "agentgloss.refresh",
@@ -53,6 +54,11 @@
     "menus": {
       "editor/context": [
         {
+          "command": "agentgloss.openReview",
+          "when": "editorLangId == markdown",
+          "group": "navigation@89"
+        },
+        {
           "command": "agentgloss.commentSelection",
           "when": "editorLangId == markdown",
           "group": "navigation@90"
@@ -61,6 +67,27 @@
           "command": "agentgloss.suggestSelection",
           "when": "editorLangId == markdown",
           "group": "navigation@91"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "agentgloss.openReview",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@90"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "agentgloss.openReview",
+          "when": "resourceLangId == markdown",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "agentgloss.openReview",
+          "when": "resourceLangId == markdown",
+          "group": "navigation@90"
         }
       ]
     },

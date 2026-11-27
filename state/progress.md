@@ -79,3 +79,10 @@
 - Final counts: 128 library + 16 CLI + 35 TUI + 11 bridge + 1 performance = 191 Rust tests, plus 17 extension tests (208 total). fmt and clippy are clean.
 - Verified the PTY close path: a `script` PTY ran the TUI, SIGHUP produced exit 1, and the sidecar was saved. Verified the extension activates in an isolated VS Code 1.145 profile with no extension-host errors.
 - Remaining manual check before a release: drive the webview in a real VS Code window and exercise the rendered selection → signoff flow (including Mermaid fidelity).
+
+## 2026-11-28 — Session 8: v0.2.0 release and editor entry points
+
+- Released v0.2.0: merge/tag on `main`, release workflow success, GitHub assets (`agentgloss-0.2.0.vsix`, both tarballs, `SHA256SUMS`), and crates.io publication.
+- Added the VS Code **Open Review** editor-title button (preview icon), the Explorer file context menu entry, and the editor-tab context menu entry. The command now accepts Explorer URIs as well as the active editor.
+- Added `test/manifest.test.ts`; extension tests are now 19 (210 automated tests total). `npm run check`, `npm test`, and VSIX packaging pass.
+- The entry points ship as v0.2.1; the real-window webview selection → signoff check remains manual.

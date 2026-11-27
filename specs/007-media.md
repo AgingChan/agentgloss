@@ -23,15 +23,16 @@
 ## Media pipeline
 
 - `MediaResolver` produces `MediaRef` values from `BlockKind::Image` and `BlockKind::Mermaid`.
-- Decoding/rasterization/encoding runs off the UI thread. The UI draws a placeholder until a result arrives; generation counters discard stale results.
-- Content-addressed in-memory cache for encoded protocol states, keyed by content/engine/theme/protocol/target cell size. Disk caching and an LRU bound are deferred.
-- Image key: SHA-256 of file content, plus source string, protocol, and target cell size. Mermaid key: SHA-256 of the source, plus engine, theme, protocol, and target cell size. A cache-version prefix invalidates old encodings.
+- Hashing, decoding/rasterization, and encoding run off the UI thread. The UI draws a placeholder until a result arrives; generation counters discard results from an older layout after `clear_encodings`.
+- Content-addressed in-memory cache for encoded protocol states, keyed by content/engine/theme/protocol/target cell size, terminal cell pixel size, and render scale. Disk caching and an LRU bound are deferred.
+- Image key: SHA-256 of file content (computed on a hash worker; a metadata-only placeholder key is used until the hash arrives), plus source string, protocol, target cell size, and cell pixel size. Mermaid key: SHA-256 of the source, plus engine, theme, protocol, target cell size, and cell pixel size. A cache-version prefix invalidates old encodings.
+- Media rectangles start after the gutter so gutter markers stay visible; source-view numbering uses the wider gutter.
 - Only blocks near the viewport are decoded and encoded.
 
 ## Mermaid
 
 - Default engine: compiled `mermaid-rs-renderer` (default features off; SVG output).
-- `mmdc` is optional and selected with `mermaid_engine = "mmdc"` or automatically if the Rust renderer fails and `mmdc` is on PATH. It is invoked with arguments, never a shell; SVG/PNG output goes to a temp file.
+- `mmdc` is optional and selected with `mermaid_engine = "mmdc"` or automatically if any stage of the Rust pipeline (render, rasterize, or encode) fails and `mmdc` is on PATH. It is invoked with arguments, never a shell; SVG/PNG output goes to a temp file.
 - `mermaid_engine = "source"` never renders; it shows the fenced source.
 - Rasterize SVG in-process: `usvg::Tree` → `tiny_skia::Pixmap` → PNG. Set the font database explicitly. Cap output dimensions.
 - Invalid diagrams render as highlighted source with a "diagram unavailable" badge and the parser error in the status line.

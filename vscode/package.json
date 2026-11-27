@@ -1,0 +1,103 @@
+{
+  "name": "agentgloss",
+  "displayName": "agentgloss Review",
+  "description": "Review Markdown specs and agent plans with comments, suggested edits, and crisp Mermaid diagrams.",
+  "version": "0.2.0",
+  "publisher": "agingchan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgingChan/agentgloss",
+    "directory": "vscode"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "review",
+    "mermaid",
+    "agents",
+    "spec"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentgloss.openReview",
+        "title": "Open Review",
+        "category": "agentgloss"
+      },
+      {
+        "command": "agentgloss.refresh",
+        "title": "Refresh Review",
+        "category": "agentgloss"
+      },
+      {
+        "command": "agentgloss.commentSelection",
+        "title": "Comment on Selection",
+        "category": "agentgloss"
+      },
+      {
+        "command": "agentgloss.suggestSelection",
+        "title": "Suggest Edit for Selection",
+        "category": "agentgloss"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "agentgloss.commentSelection",
+          "when": "editorLangId == markdown",
+          "group": "navigation@90"
+        },
+        {
+          "command": "agentgloss.suggestSelection",
+          "when": "editorLangId == markdown",
+          "group": "navigation@91"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "agentgloss",
+      "properties": {
+        "agentgloss.path": {
+          "type": "string",
+          "default": "agentgloss",
+          "scope": "machine",
+          "description": "Path to the agentgloss binary (or a command on PATH)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "package": "npm run build && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "markdown-it": "^14.1.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-task-lists": "^2.1.1",
+    "mermaid": "^11.4.0"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.25.0",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

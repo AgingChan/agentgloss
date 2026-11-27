@@ -96,7 +96,7 @@ pub fn export_prompt(
     for (number, item) in items.iter().enumerate() {
         push_item(&mut out, number + 1, item);
     }
-    out
+    crate::sanitize::sanitize_terminal_text(&out).into_owned()
 }
 
 fn push_item(out: &mut String, number: usize, item: &super::ReviewItem) {
@@ -224,6 +224,19 @@ mod tests {
         assert!(prompt.contains(&format!("[{}] comment", id)));
         assert!(prompt.contains("> Hello world."));
         assert!(prompt.contains("agentgloss resolve spec.md c1"));
+    }
+
+    #[test]
+    fn prompt_sanitizes_control_characters() {
+        let (mut store, document, _id) = fixture();
+        let start = document.source.find("Second paragraph.").unwrap();
+        let anchor =
+            Anchor::from_range(&document, start..start + "Second paragraph.".len()).unwrap();
+        store.add_comment(anchor, "Evil\x1b]0;pwned\x07 notice");
+        let prompt = export_prompt(&store, false, None);
+        assert!(!prompt.contains('\x1b'));
+        assert!(!prompt.contains('\x07'));
+        assert!(prompt.contains('\u{241b}'));
     }
 
     #[test]

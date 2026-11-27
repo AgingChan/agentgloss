@@ -65,31 +65,85 @@ fn upsert_block(path: &Path, block: &str) -> anyhow::Result<()> {
         }
     };
     let block = block.trim_end();
-    let (before, after) = match (existing.find(START), existing.find(END)) {
-        (Some(start), Some(end)) if end > start => (
-            existing[..start].trim_end(),
-            existing[end + END.len()..].trim_start_matches('\n'),
-        ),
-        (Some(start), None) => (existing[..start].trim_end(), ""),
-        (None, Some(end)) => (
-            existing[..end].trim_end(),
-            existing[end + END.len()..].trim_start_matches('\n'),
-        ),
-        (Some(_), Some(_)) => {
-            anyhow::bail!(
-                "malformed agentgloss markers in {} (end appears before start)",
-                path.display()
-            );
+    let mut markers = Vec::new();
+    markers.extend(
+        find_markers(&existing, START)
+            .into_iter()
+            .map(|at| (at, true)),
+    );
+    markers.extend(
+        find_markers(&existing, END)
+            .into_iter()
+            .map(|at| (at, false)),
+    );
+    markers.sort_by_key(|(at, _)| *at);
+
+    let mut pairs = Vec::new();
+    let mut open = None;
+    for (at, is_start) in markers {
+        if is_start {
+            if open.is_some() {
+                anyhow::bail!(
+                    "malformed agentgloss markers in {} (nested start marker)",
+                    path.display()
+                );
+            }
+            open = Some(at);
+        } else {
+            let Some(start) = open.take() else {
+                anyhow::bail!(
+                    "malformed agentgloss markers in {} (end marker without a start)",
+                    path.display()
+                );
+            };
+            pairs.push((start, at + END.len()));
         }
-        (None, None) => (existing.trim_end(), ""),
+    }
+    if open.is_some() {
+        anyhow::bail!(
+            "malformed agentgloss markers in {} (start marker without an end)",
+            path.display()
+        );
+    }
+
+    let (before, between, after) = if pairs.is_empty() {
+        (
+            existing.trim_end().to_string(),
+            String::new(),
+            String::new(),
+        )
+    } else {
+        let first = pairs[0].0;
+        let last = pairs[pairs.len() - 1].1;
+        let mut between = String::new();
+        for window in pairs.windows(2) {
+            let content = existing[window[0].1..window[1].0].trim();
+            if !content.is_empty() {
+                if !between.is_empty() {
+                    between.push('\n');
+                }
+                between.push_str(content);
+            }
+        }
+        (
+            existing[..first].trim_end().to_string(),
+            between,
+            existing[last..].trim_start_matches('\n').to_string(),
+        )
     };
+
     let mut content = String::new();
     if !before.is_empty() {
-        content.push_str(before);
+        content.push_str(&before);
         content.push('\n');
     }
     content.push_str(block);
     content.push('\n');
+    if !between.is_empty() {
+        content.push('\n');
+        content.push_str(&between);
+        content.push('\n');
+    }
     if !after.trim().is_empty() {
         content.push('\n');
         content.push_str(after.trim_end());
@@ -100,6 +154,17 @@ fn upsert_block(path: &Path, block: &str) -> anyhow::Result<()> {
     }
     std::fs::write(path, content)?;
     Ok(())
+}
+
+fn find_markers(text: &str, marker: &str) -> Vec<usize> {
+    let mut positions = Vec::new();
+    let mut start = 0;
+    while let Some(found) = text[start..].find(marker) {
+        let at = start + found;
+        positions.push(at);
+        start = at + marker.len();
+    }
+    positions
 }
 
 fn claude_recipe() -> String {
@@ -395,33 +460,39 @@ mod tests {
     }
 
     #[test]
-    fn repairs_partial_marker_blocks() {
+    fn orphan_marker_blocks_are_refused_without_rewriting() {
         let dir = tempfile::tempdir().unwrap();
         let start_only = dir.path().join("AGENTS.md");
+        let start_text = "# Keep\n\n<!-- agentgloss:start -->\norphaned text\n";
+        std::fs::write(&start_only, start_text).unwrap();
+        assert!(install(InstallAgent::Codex, dir.path()).is_err());
+        assert_eq!(std::fs::read_to_string(&start_only).unwrap(), start_text);
+
+        let end_only = dir.path().join("GEMINI.md");
+        let end_text = "Notes before\n\n<!-- agentgloss:end -->\n\n# Keep\n";
+        std::fs::write(&end_only, end_text).unwrap();
+        assert!(install(InstallAgent::Gemini, dir.path()).is_err());
+        assert_eq!(std::fs::read_to_string(&end_only).unwrap(), end_text);
+    }
+
+    #[test]
+    fn duplicate_complete_marker_blocks_are_collapsed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
         std::fs::write(
-            &start_only,
-            "# Keep\n\n<!-- agentgloss:start -->\norphaned text\n",
+            &path,
+            "# Keep\n\n<!-- agentgloss:start -->\none\n<!-- agentgloss:end -->\n\nMiddle\n\n<!-- agentgloss:start -->\ntwo\n<!-- agentgloss:end -->\n\nTail\n",
         )
         .unwrap();
         install(InstallAgent::Codex, dir.path()).unwrap();
-        let text = std::fs::read_to_string(&start_only).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(text.matches(START).count(), 1, "{text}");
+        assert_eq!(text.matches(END).count(), 1, "{text}");
         assert!(text.contains("# Keep"));
-        assert!(!text.contains("orphaned text"), "{text}");
-        assert_eq!(text.matches(START).count(), 1);
-        assert_eq!(text.matches(END).count(), 1);
-
-        let end_only = dir.path().join("GEMINI.md");
-        std::fs::write(
-            &end_only,
-            "Notes before\n\n<!-- agentgloss:end -->\n\n# Keep\n",
-        )
-        .unwrap();
-        install(InstallAgent::Gemini, dir.path()).unwrap();
-        let text = std::fs::read_to_string(&end_only).unwrap();
-        assert!(text.contains("Notes before"), "{text}");
-        assert!(text.contains("# Keep"));
-        assert_eq!(text.matches(START).count(), 1);
-        assert_eq!(text.matches(END).count(), 1);
+        assert!(text.contains("Middle"));
+        assert!(text.contains("Tail"));
+        assert!(!text.contains("\none\n"));
+        assert!(!text.contains("\ntwo\n"));
     }
 
     #[test]

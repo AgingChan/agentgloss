@@ -61,7 +61,9 @@ pub enum ColumnAlign { None, Left, Center, Right }
 - A fenced code block with language `mermaid` becomes `BlockKind::Mermaid`; its source is the code content excluding the fences.
 - A paragraph containing only an image becomes `BlockKind::Image`; an image inside mixed text remains an inline and is not previewed.
 - Nested lists and blockquotes increment `depth`; each list item is a separate block.
-- Tables are one block. The block retains header and body rows, each cell as styled inlines with a source range, plus per-column alignment.
+- Multi-paragraph list items and footnotes produce separate blocks: the first paragraph keeps the list marker/footnote kind, and continuation paragraphs are indented by list depth. Adjacent list items render without a blank separator, and wrapped list-item lines use a hanging indent aligned after the marker.
+- Tables are one block. The block retains header and body rows, each cell as styled inlines with a source range, plus per-column alignment. Empty cells carry an empty inline whose source range equals the cell range.
+- Display rendering sanitizes C0/C1/DEL control characters into visible control pictures; raw source, hashes, anchors, and quotes remain byte-exact.
 - Rendered tables use aligned columns and a styled header row; cell text wraps within its column, and a table that cannot fit minimum column widths falls back to flattened pipe-separated text.
 - HTML is kept as raw text and rendered literally.
 - Rule (`---`) is a block with no inlines.

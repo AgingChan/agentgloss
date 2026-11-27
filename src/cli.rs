@@ -1,6 +1,7 @@
 //! Command-line interface and command dispatch.
 
 use crate::agent;
+use crate::bridge::BridgeArgs;
 use crate::config::{Config, Keys, Protocol, Theme};
 use crate::document::Document;
 use crate::review::export::{export_exit_code, export_json, export_prompt, status_label};
@@ -56,6 +57,9 @@ pub enum Command {
     },
     /// Install an agent integration recipe.
     Install(InstallArgs),
+    /// Internal JSON bridge for editor integrations.
+    #[command(hide = true)]
+    Bridge(BridgeArgs),
     /// Internal TUI entry point used by the tmux adapter.
     #[command(name = "__tui", hide = true)]
     Tui(ReviewArgs),
@@ -170,6 +174,7 @@ fn dispatch(cli: Cli) -> anyhow::Result<i32> {
         Command::Status(args) => run_status(&args),
         Command::Resolve { file, ids, sidecar } => run_resolve(&file, &ids, sidecar.as_ref()),
         Command::Install(args) => run_install(&args),
+        Command::Bridge(args) => Ok(crate::bridge::run(&args)),
     }
 }
 
@@ -370,7 +375,10 @@ fn run_status(args: &StatusArgs) -> anyhow::Result<i32> {
         });
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else {
-        println!("File: {}", store.file);
+        println!(
+            "File: {}",
+            crate::sanitize::sanitize_terminal_text(&store.file)
+        );
         println!("Round: {}", store.round);
         println!("Status: {status}");
         println!(
@@ -383,13 +391,16 @@ fn run_status(args: &StatusArgs) -> anyhow::Result<i32> {
             println!("Document changed since the last review state.");
         }
         if let Some(requested) = &store.requested_at {
-            println!("Requested: {requested}");
+            println!(
+                "Requested: {}",
+                crate::sanitize::sanitize_terminal_text(requested)
+            );
         }
         if let Some(approval) = &store.approval {
             println!(
                 "Approval: {} at {} ({})",
-                approval.hash,
-                approval.at,
+                crate::sanitize::sanitize_terminal_text(&approval.hash),
+                crate::sanitize::sanitize_terminal_text(&approval.at),
                 if approval_valid {
                     "valid"
                 } else {
@@ -406,12 +417,14 @@ fn run_resolve(
     ids: &[String],
     sidecar_override: Option<&PathBuf>,
 ) -> anyhow::Result<i32> {
+    let document = Document::load(file)?;
     let sidecar = chosen_sidecar(file, sidecar_override);
     if !sidecar.exists() {
         anyhow::bail!("no review state at {}", sidecar.display());
     }
     let _lock = StoreLock::acquire(&sidecar)?;
     let mut store = ReviewStore::load(&sidecar)?;
+    store.start_round_if_changed(&document);
     for id in ids {
         store.resolve(id)?;
     }

@@ -1,4 +1,4 @@
-# mdreview Progress
+# agentgloss Progress
 
 ## 2026-11-21 — Session 0: design and scaffold
 
@@ -67,3 +67,15 @@
 - Fixed `scripts/env.sh` leaking `set -euo pipefail` into the caller's interactive shell. Terax's prompt hook reads `$TERAX_BLOCKS` without a default, so `nounset` made every prompt print `TERAX_BLOCKS: parameter not set`.
 - The script now validates conda and the `rustbuild` environment explicitly, returns on error, and leaves the caller's shell options unchanged.
 - Verified in zsh: sourcing leaves the shell without `nounset`, `TERAX_BLOCKS=unset` is harmless, and `cargo`/`rustc` resolve correctly. Build and full gate still pass (131 tests).
+
+## 2026-11-28 — Session 7: QA cleanup, editor bridge, and VS Code extension
+
+- Established the macOS arm64 baseline: Rust 1.100, host target `aarch64-apple-darwin`, 153 tests green. Local commands use `--target`; `scripts/env.sh` remains Linux/conda-only.
+- Added the hidden editor bridge (`bridge state` / `bridge apply`) with a versioned JSON contract: lock-free pure state reads, per-operation mutations with `expect_hash`, line-range selections, reconciliation, item CRUD, and shared signoff policy. 11 bridge integration tests.
+- Added the VS Code extension under `vscode/`: rendered Markdown + bundled Mermaid v11 webview, block/paragraph selection for comments/suggestions, inline threads, stale reattach, signoff, bridge state sync, source-editor exact-selection commands, trust/CSP protections, and a 1 MB VSIX. 17 Vitest/jsdom tests.
+- Completed the P1 cleanup: resolve validates the document; version probing avoids backing up unsupported sidecars; empty table cells carry ranges; multi-paragraph lists/footnotes, list spacing, nesting indentation, and hanging wraps; control-character sanitization; media gutter offset; stale draft discard; standard `[`/`]` headings; scrollable help; reload resets; duplicate/orphan agent markers; SIGHUP/SIGTERM and panic-hook terminal restore.
+- Completed the P3 cleanup: removed `image_src`; deduped helpers; unified timestamps; moved media hashing to workers; cache keys include cell pixel size; generation counters discard stale results; Auto `mmdc` fallback covers render/raster/encode; empty-document message reachable; mouse cleanup on init failure.
+- Added extension wiring: Cargo/package exclusions, gitignore entries, a Node CI job with VSIX artifact, and updated package/docs/workflow checks.
+- Final counts: 128 library + 16 CLI + 35 TUI + 11 bridge + 1 performance = 191 Rust tests, plus 17 extension tests (208 total). fmt and clippy are clean.
+- Verified the PTY close path: a `script` PTY ran the TUI, SIGHUP produced exit 1, and the sidecar was saved. Verified the extension activates in an isolated VS Code 1.145 profile with no extension-host errors.
+- Remaining manual check before a release: drive the webview in a real VS Code window and exercise the rendered selection → signoff flow (including Mermaid fidelity).

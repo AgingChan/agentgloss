@@ -26,6 +26,20 @@ grep -q 'merge-base --is-ancestor' "$release"
 grep -q 'origin/main' "$release"
 grep -q 'fetch-depth: 0' "$release"
 
+grep -q 'vscode:' "$ci"
+grep -q 'setup-node@v4' "$ci"
+grep -q 'working-directory: vscode' "$ci"
+grep -q 'npm ci' "$ci"
+grep -q 'npm run check' "$ci"
+grep -q 'npm test' "$ci"
+grep -q 'npm run package' "$ci"
+grep -q "upload-artifact" "$ci"
+
+grep -q 'agentgloss-vscode' "$release"
+grep -q 'npm run package' "$release"
+grep -q 'sha256sum .*vsix' "$release"
+grep -q 'vscode/package.json' "$release"
+
 if python3 -c 'import yaml' 2>/dev/null; then
     python3 -c 'import sys, yaml; [yaml.safe_load(open(p)) for p in sys.argv[1:]]' "$ci" "$release"
 fi

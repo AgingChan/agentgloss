@@ -5,3 +5,9 @@
 
 .claude/
 .superpowers/
+
+# VS Code extension
+vscode/node_modules/
+vscode/dist/
+vscode/out/
+vscode/*.vsix

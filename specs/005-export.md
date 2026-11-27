@@ -58,6 +58,7 @@ Rules:
 - Numbering is sequential and independent of the stable ID.
 - Quote lines are prefixed with `> `; blank lines inside quotes become `>`.
 - Bodies and suggestions are printed verbatim, with no Markdown escaping.
+- Suggestions may carry an optional comment body; the editor bridge/webview sets it, while the TUI suggestion editor is title-less and leaves it empty.
 - `--all` includes resolved items, clearly labelled. If the revision is approved, archived items are listed under `Resolved items (archived):` without action instructions.
 - Text never exceeds one blank line between sections.
 

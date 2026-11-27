@@ -142,6 +142,7 @@ pub struct App {
     pub last_search: Option<SearchState>,
     pub(crate) editor: Option<Editor>,
     pub help: bool,
+    pub help_scroll: usize,
     pub status: String,
     pub should_quit: bool,
     pub exit: Option<TuiExit>,
@@ -204,6 +205,7 @@ impl App {
             last_search: None,
             editor: None,
             help: false,
+            help_scroll: 0,
             status: "Ready. ? for help".to_string(),
             should_quit: false,
             exit: None,
@@ -219,7 +221,9 @@ impl App {
             pending_reload: false,
         };
         app.refresh_markers();
-        if let Some(draft) = app.store.draft.clone() {
+        if !app.discard_stale_draft()
+            && let Some(draft) = app.store.draft.clone()
+        {
             let title = match draft.kind {
                 ItemKind::Comment if draft.editing_id.is_some() => "Resume comment edit",
                 ItemKind::Comment => "Resume comment",
@@ -241,6 +245,25 @@ impl App {
             app.status = "Resumed an unfinished draft".to_string();
         }
         app
+    }
+
+    fn discard_stale_draft(&mut self) -> bool {
+        let Some(draft) = self.store.draft.clone() else {
+            return false;
+        };
+        if draft.anchor.doc_hash == self.document.hash {
+            return false;
+        }
+        self.store.clear_draft();
+        match self.store.save(&self.sidecar) {
+            Ok(()) => {
+                self.status = "Discarded a draft from an older revision".to_string();
+            }
+            Err(error) => {
+                self.status = format!("Discard draft save failed: {error}");
+            }
+        }
+        true
     }
 
     pub fn is_editing(&self) -> bool {
@@ -314,10 +337,7 @@ impl App {
             ),
             ViewMode::Source => source_lines(&self.document),
         };
-        if self.lines.is_empty() {
-            self.lines.push(blank_visual(&self.document));
-        }
-        self.cursor = self.cursor.min(self.lines.len() - 1);
+        self.cursor = self.cursor.min(self.lines.len().saturating_sub(1));
         self.scroll = self.scroll.min(self.lines.len().saturating_sub(1));
         self.media.clear_encodings();
         self.media_keys.clear();
@@ -698,8 +718,8 @@ impl App {
             .iter()
             .map(|line| {
                 items.iter().any(|item| {
-                    ranges_overlap(&item.anchor.range(), &line.source)
-                        || lines_overlap(&item.anchor.lines(), &line.source_lines)
+                    overlaps(&item.anchor.range(), &line.source)
+                        || overlaps(&item.anchor.lines(), &line.source_lines)
                 })
             })
             .collect();
@@ -945,16 +965,11 @@ impl App {
         };
         match confirm.action {
             ConfirmAction::Signoff => {
-                if self.store.has_feedback() {
-                    self.store.signoff_feedback();
-                } else {
-                    self.store.approve();
-                }
+                let signoff = self.store.signoff();
                 if self.save_store() {
-                    self.exit = Some(if self.store.has_feedback() {
-                        TuiExit::Feedback
-                    } else {
-                        TuiExit::Approved
+                    self.exit = Some(match signoff {
+                        crate::review::SignoffKind::Approved => TuiExit::Approved,
+                        crate::review::SignoffKind::Feedback => TuiExit::Feedback,
                     });
                     self.should_quit = true;
                 }
@@ -990,11 +1005,26 @@ impl App {
             return;
         }
         if self.help {
-            if matches!(
-                key.code,
-                KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')
-            ) {
-                self.help = false;
+            match key.code {
+                KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => {
+                    self.help = false;
+                    self.help_scroll = 0;
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    self.help_scroll = self.help_scroll.saturating_add(1);
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    self.help_scroll = self.help_scroll.saturating_sub(1);
+                }
+                KeyCode::PageDown => {
+                    self.help_scroll = self.help_scroll.saturating_add(10);
+                }
+                KeyCode::PageUp => {
+                    self.help_scroll = self.help_scroll.saturating_sub(10);
+                }
+                KeyCode::Home => self.help_scroll = 0,
+                KeyCode::End => self.help_scroll = usize::MAX / 2,
+                _ => {}
             }
             return;
         }
@@ -1002,9 +1032,14 @@ impl App {
             self.handle_search_key(key);
             return;
         }
+        if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.save_store();
+            return;
+        }
 
         if key.code == KeyCode::F(1) || (key.code == KeyCode::Char('?') && self.no_control(&key)) {
             self.help = true;
+            self.help_scroll = 0;
             return;
         }
         if key.code == KeyCode::F(2) {
@@ -1149,10 +1184,10 @@ impl App {
                 }
                 KeyCode::Home => self.set_cursor(0),
                 KeyCode::End => self.set_cursor(self.lines.len().saturating_sub(1)),
-                KeyCode::Char(']') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                KeyCode::Char(']') => {
                     self.next_heading(true);
                 }
-                KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                KeyCode::Char('[') => {
                     self.next_heading(false);
                 }
                 KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -1533,8 +1568,8 @@ impl App {
             .iter()
             .filter(|item| item.status != ItemStatus::Resolved)
             .find(|item| {
-                ranges_overlap(&item.anchor.range(), &line_source)
-                    || lines_overlap(&item.anchor.lines(), &line_number)
+                overlaps(&item.anchor.range(), &line_source)
+                    || overlaps(&item.anchor.lines(), &line_number)
             })
             .map(|item| item.id.clone());
         let Some(id) = id else {
@@ -1586,6 +1621,9 @@ impl App {
                 self.document = document;
                 self.last_meta = file_meta(&self.document.path);
                 self.mermaid_source.clear();
+                self.selection = None;
+                self.drag_start = None;
+                self.pending_key = None;
                 self.refresh_media_aspects();
                 self.outline = build_outline(&self.document);
                 self.outline_cursor = self
@@ -1597,9 +1635,18 @@ impl App {
                 self.outline_scroll = 0;
                 self.review_scroll = 0;
                 self.store.start_round_if_changed(&self.document);
+                self.discard_stale_draft();
                 let saved = self.save_store();
                 self.rebuild(self.layout_width);
+                self.cursor = self.cursor.min(self.lines.len().saturating_sub(1));
+                if let Some(search) = self.search.as_mut() {
+                    search.recompute(&self.lines);
+                }
+                if let Some(search) = self.last_search.as_mut() {
+                    search.recompute(&self.lines);
+                }
                 self.jump_to_source(old_source);
+                self.ensure_cursor_visible(self.viewport_height.max(1));
                 if saved {
                     self.status = "File changed; open items re-anchored".to_string();
                 }
@@ -1697,7 +1744,7 @@ fn build_outline(document: &Document) -> Vec<OutlineItem> {
             BlockKind::Heading(level) => Some(OutlineItem {
                 block: block.index,
                 level,
-                text: block.text(),
+                text: crate::sanitize::sanitize_terminal_text(&block.text()).into_owned(),
             }),
             _ => None,
         })
@@ -1707,12 +1754,10 @@ fn build_outline(document: &Document) -> Vec<OutlineItem> {
 fn source_lines(document: &Document) -> Vec<VisualLine> {
     let mut lines = Vec::new();
     for line_number in 1..=document.line_count() {
-        let text = document
-            .source_line(line_number)
-            .unwrap_or_default()
-            .to_string();
+        let raw = document.source_line(line_number).unwrap_or_default();
         let start = document.line_starts[line_number - 1];
-        let end = start + text.len();
+        let end = start + raw.len();
+        let text = crate::sanitize::sanitize_terminal_text(raw).into_owned();
         let block = document.block_index_at(start).unwrap_or(0);
         lines.push(VisualLine {
             spans: vec![StyledSpan {
@@ -1729,22 +1774,7 @@ fn source_lines(document: &Document) -> Vec<VisualLine> {
     lines
 }
 
-fn blank_visual(document: &Document) -> VisualLine {
-    VisualLine {
-        spans: Vec::new(),
-        text: String::new(),
-        source: 0..0,
-        source_lines: document.lines_of(0..0),
-        block: 0,
-        kind: VisualKind::Text,
-    }
-}
-
-fn ranges_overlap(left: &std::ops::Range<usize>, right: &std::ops::Range<usize>) -> bool {
-    left.start < right.end && right.start < left.end
-}
-
-fn lines_overlap(left: &std::ops::Range<usize>, right: &std::ops::Range<usize>) -> bool {
+fn overlaps(left: &std::ops::Range<usize>, right: &std::ops::Range<usize>) -> bool {
     left.start < right.end && right.start < left.end
 }
 
@@ -1795,6 +1825,87 @@ mod tests {
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)
+    }
+
+    #[test]
+    fn standard_mode_uses_plain_brackets_for_headings() {
+        let (mut app, _dir) = fixture_with("# A\n\none\n\n## B\n\ntwo\n", Keys::Standard);
+        app.set_cursor(2);
+        app.handle_key(key(KeyCode::Char(']')));
+        assert_eq!(app.outline_cursor, 1);
+        assert_eq!(app.current_line().unwrap().block, app.outline[1].block);
+        app.handle_key(key(KeyCode::Char('[')));
+        assert_eq!(app.outline_cursor, 0);
+        assert_eq!(app.current_line().unwrap().block, app.outline[0].block);
+    }
+
+    #[test]
+    fn help_overlay_scrolls_and_resets() {
+        let (mut app, _dir) = fixture("# A\n\none\n");
+        app.handle_key(key(KeyCode::F(1)));
+        assert!(app.help);
+        assert_eq!(app.help_scroll, 0);
+        app.handle_key(key(KeyCode::PageDown));
+        assert_eq!(app.help_scroll, 10);
+        app.handle_key(key(KeyCode::Down));
+        assert_eq!(app.help_scroll, 11);
+        app.handle_key(key(KeyCode::Up));
+        assert_eq!(app.help_scroll, 10);
+        app.handle_key(key(KeyCode::Esc));
+        assert!(!app.help);
+        assert_eq!(app.help_scroll, 0);
+    }
+
+    #[test]
+    fn reload_clears_selection_and_recomputes_search() {
+        let (mut app, dir) = fixture("# A\n\nalpha beta gamma\n");
+        app.selection = Some(Selection {
+            start: 2,
+            end: 2,
+            block: false,
+        });
+        app.search = Some(SearchState {
+            query: "alpha".to_string(),
+            matches: vec![2],
+            index: 0,
+        });
+        app.last_search = Some(SearchState {
+            query: "alpha".to_string(),
+            matches: vec![2],
+            index: 0,
+        });
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(dir.path().join("spec.md"), "# A\n\nbeta\n").unwrap();
+        app.check_file_change();
+        assert!(app.selection.is_none());
+        assert!(app.search.as_ref().unwrap().matches.is_empty());
+        assert!(app.last_search.as_ref().unwrap().matches.is_empty());
+        assert!(app.cursor < app.lines.len());
+    }
+
+    #[test]
+    fn drafts_from_an_older_revision_are_discarded() {
+        let (app, _dir) = fixture("# A\n\nhello world\n");
+        let start = app.document.source.find("hello world").unwrap();
+        let anchor = Anchor::from_range(&app.document, start..start + "hello world".len()).unwrap();
+        let mut store = app.store.clone();
+        store.set_draft(Draft {
+            kind: ItemKind::Comment,
+            body: "unfinished".to_string(),
+            original: None,
+            anchor,
+            editing_id: None,
+        });
+        store.save(&app.sidecar).unwrap();
+        std::fs::write(&app.document.path, "# A\n\nchanged text\n").unwrap();
+        let document = Document::load(&app.document.path).unwrap();
+        let stored = ReviewStore::load(&app.sidecar).unwrap();
+        let app = App::new(document, stored, app.sidecar.clone(), app.options.clone());
+        assert!(app.editor.is_none());
+        assert!(app.store.draft.is_none());
+        assert!(app.status.contains("Discarded"), "{}", app.status);
+        let stored = ReviewStore::load(&app.sidecar).unwrap();
+        assert!(stored.draft.is_none());
     }
 
     #[test]

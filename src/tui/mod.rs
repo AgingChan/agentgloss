@@ -16,6 +16,8 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use std::io::stdout;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 pub fn run(
@@ -34,16 +36,74 @@ pub fn run(
     if let Some(status) = startup_status {
         app.status = status;
     }
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let _signals = SignalGuard::new(interrupted.clone());
+    let previous_hook: Arc<dyn Fn(&std::panic::PanicHookInfo<'_>) + Send + Sync> =
+        Arc::from(std::panic::take_hook());
+    let hook = previous_hook.clone();
+    let mouse = options.mouse;
+    std::panic::set_hook(Box::new(move |info| {
+        restore_terminal(mouse);
+        hook(info);
+    }));
     let mut session = TerminalSession::new(options.mouse)?;
-    let result = event_loop(&mut session.terminal, &mut app);
+    let result = event_loop(&mut session.terminal, &mut app, &interrupted);
     drop(session);
+    std::panic::set_hook(Box::new(move |info| previous_hook(info)));
     *store = app.store;
     if let Err(error) = result {
-        // A closed terminal or a failed draw is an aborted review, not a
-        // command failure: the caller still saves the edited review state.
+        // A closed terminal, a signal, or a failed draw is an aborted review,
+        // not a command failure: the caller still saves the review state.
         eprintln!("agentgloss: terminal session ended: {error}");
     }
     Ok(app.exit.unwrap_or(TuiExit::Aborted))
+}
+
+#[cfg(unix)]
+struct SignalGuard {
+    ids: Vec<signal_hook::SigId>,
+}
+
+#[cfg(unix)]
+impl SignalGuard {
+    fn new(flag: Arc<AtomicBool>) -> Self {
+        use signal_hook::consts::{SIGHUP, SIGTERM};
+        let mut ids = Vec::new();
+        for signal in [SIGHUP, SIGTERM] {
+            if let Ok(id) = signal_hook::flag::register(signal, flag.clone()) {
+                ids.push(id);
+            }
+        }
+        Self { ids }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for SignalGuard {
+    fn drop(&mut self) {
+        for id in &self.ids {
+            signal_hook::low_level::unregister(*id);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+struct SignalGuard;
+
+#[cfg(not(unix))]
+impl SignalGuard {
+    fn new(_flag: Arc<AtomicBool>) -> Self {
+        Self
+    }
+}
+
+fn restore_terminal(mouse: bool) {
+    let mut out = stdout();
+    if mouse {
+        let _ = execute!(out, DisableMouseCapture);
+    }
+    let _ = execute!(out, LeaveAlternateScreen);
+    let _ = disable_raw_mode();
 }
 
 struct TerminalSession {
@@ -67,8 +127,7 @@ impl TerminalSession {
         let terminal = match Terminal::new(CrosstermBackend::new(out)) {
             Ok(terminal) => terminal,
             Err(error) => {
-                let _ = execute!(stdout(), LeaveAlternateScreen);
-                let _ = disable_raw_mode();
+                restore_terminal(mouse);
                 return Err(error.into());
             }
         };
@@ -78,12 +137,7 @@ impl TerminalSession {
 
 impl Drop for TerminalSession {
     fn drop(&mut self) {
-        let mut out = stdout();
-        if self.mouse {
-            let _ = execute!(out, DisableMouseCapture);
-        }
-        let _ = execute!(out, LeaveAlternateScreen);
-        let _ = disable_raw_mode();
+        restore_terminal(self.mouse);
         let _ = self.terminal.show_cursor();
     }
 }
@@ -91,9 +145,15 @@ impl Drop for TerminalSession {
 fn event_loop(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     app: &mut App,
+    interrupted: &AtomicBool,
 ) -> anyhow::Result<()> {
     let mut last_check = Instant::now();
     loop {
+        if interrupted.load(Ordering::Relaxed) {
+            app.exit = Some(TuiExit::Aborted);
+            app.should_quit = true;
+            return Ok(());
+        }
         terminal.draw(|frame| render::draw(frame, app))?;
         if app.should_quit {
             break;

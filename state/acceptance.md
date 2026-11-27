@@ -1,63 +1,52 @@
-# mdreview acceptance matrix
+# agentgloss acceptance matrix
 
-Evidence was produced on 2026-11-21 with the static musl build and the full
-`cargo test --all-features` suite. Counts are 84 library, 15 CLI, 31 TUI, and
-1 performance test (131 total).
+Evidence was refreshed on 2026-11-28 on macOS arm64 (Rust 1.100, host target
+`aarch64-apple-darwin`). The v0.2.0 release gate covers the static musl build,
+the editor bridge, and the VS Code extension without changing the sidecar
+schema.
+
+Counts: 128 library, 16 CLI integration, 35 TUI integration, 11 bridge
+integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
+17 VS Code extension tests (208 automated tests total).
 
 | Feature | Evidence |
 | --- | --- |
-| Markdown parser and source map | `document::tests::parses_headings_paragraphs_and_paths`, `parses_lists_tables_quotes_and_code`, `empty_crlf_and_no_trailing_newline_inputs`, `parses_task_rules_footnotes_and_nested_lists`, `source_ranges_and_lines_round_trip`, `layout::tests::wraps_and_maps_source`, `emoji_graphemes_are_not_split` |
+| Markdown parser and source map | `parses_headings_paragraphs_and_paths`, `parses_lists_tables_quotes_and_code`, `empty_crlf_and_no_trailing_newline_inputs`, `multi_paragraph_lists_and_footnotes_are_separate_blocks`, `empty_table_cells_have_inline_source_ranges`, `layout::tests::wraps_and_maps_source`, `media_area_starts_after_the_gutter` |
+| List/footnote layout | `adjacent_list_items_have_no_blank_separator`, `nested_items_are_indented_without_blank_separators`, `multi_paragraph_items_indent_continuations`, `wrapped_list_items_use_a_hanging_indent` |
 | Review anchors and re-anchoring | `review::tests::exact_and_moved_reanchoring`, `duplicate_quotes_use_context`, `whitespace_and_block_fallback`, `inserted_and_deleted_text_fall_back_to_the_block`, `heading_moves_update_the_heading_path`, `unicode_quotes_and_normalized_whitespace_reanchor`, `jaccard_fallback_requires_half_the_tokens`, `missing_text_goes_stale` |
-| Rounds and approval | `review::tests::approval_invalidated_by_change`, `tests/cli.rs::request_after_edit_increments_round`, `two_round_end_to_end_flow`, `tests/tui.rs::file_change_reanchors_and_updates_round` |
-| Prompt/JSON export | `review::export::tests::comment_prompt_is_a_stable_golden`, `approved_prompt`, `approved_all_lists_archived_items_without_action_instructions`, `quotes_preserve_blank_lines_and_bodies_stay_verbatim`, `numbering_follows_anchor_order_not_insertion_order`, `empty_and_stale_only_exports_are_clear`, `resolve_command_includes_a_custom_sidecar`, `json_filtering_and_exit_code`; CLI `request_status_export_resolve_flow`, `custom_sidecar_commands_work`, `export_does_not_mutate_the_review_lifecycle` |
-| TUI at 80x24 / 120x40 | `tests/tui.rs::renders_at_80x24_and_wide`, `renders_at_100x30`, `narrow_terminal_shows_focused_panel_overlay`, `tiny_terminal_does_not_panic` |
-| Vim, standard, and mouse input | `tui::app::tests::navigation_and_focus`, `block_and_heading_motions`, `standard_mode_navigation_and_comment`; `tests/tui.rs::mouse_click_and_drag_select_lines`, `wheel_and_mouse_disabled`, `shift_tab_cycles_focus_backwards`, `review_panel_and_footer_clicks_work`, `send_button_hits_the_send_action`, `mouse_actions_do_not_bypass_an_open_editor` |
-| Comments and suggestions | `tui::app::tests::comment_editor_creates_item`, `suggestion_editor_creates_item`, `edit_existing_comment`, `resolve_and_delete_items`, `draft_resumes_after_reopen`, `f10_and_ctrl_s_save_without_ctrl_enter`, `suggestion_original_has_no_trailing_newline_and_survives_edits`; `review::tests::reattach_refreshes_suggestion_original` |
-| Images | `media::tests::resolves_and_encodes_local_png`, `absolute_image_paths_and_raster_formats`, `decodes_webp_and_preserves_pixel_data`, `svg_raster_has_visible_pixels`, `enforces_file_and_pixel_limits`, `rejects_remote_and_missing_images`, `explicit_protocol_overrides_detection`, `derives_font_size_from_terminal_pixels_when_plausible`; `tests/tui.rs::image_media_is_prepared_and_cached`, `loaded_image_rows_do_not_contain_the_media_label`, `remote_image_renders_as_a_link_without_starting_a_worker` |
-| Mermaid | `media::tests::renders_a_simple_mermaid_diagram`, `renders_sequence_and_class_diagrams`, `failed_mermaid_render_is_cached`, `fake_mmdc_program_returns_svg`, `auto_engine_falls_back_to_mmdc_when_the_rust_parser_fails`; `tests/tui.rs::invalid_mermaid_renders_source_fallback`, `mermaid_source_engine_renders_source_without_starting_a_worker`, `enter_toggles_only_the_mermaid_block_source` |
-| Agent handshake | `tests/cli.rs::request_status_export_resolve_flow`, `wait_returns_feedback_and_times_out`, `wait_returns_approval`, `two_round_end_to_end_flow`; recipe tests in `agent::tests` |
-| tmux adapter | `tests/cli.rs::tmux_adapter_builds_popup_and_detach_commands`: popup flags, feedback (21), approved (20), abort (22), popup failure (1/2), result-file fallback, custom sidecar, detached window; a direct `__tui` PTY run wrote abort sentinel 22 to `MDREVIEW_RESULT_FILE`; a real tmux 3.2a client with a pty attachment returned 21 and 20 from `display-popup -E` |
-| Static binary | `file` reports `ELF 64-bit LSB pie executable ... static-pie linked`; `ldd` reports `statically linked`; `--version` prints `mdreview 0.1.0` |
+| Rounds, approval, signoff | `approval_invalidated_by_change`, `signoff_policy_sends_feedback_then_approves`, `tests/cli.rs::request_after_edit_increments_round`, `two_round_end_to_end_flow`, `tests/tui.rs::file_change_reanchors_and_updates_round` |
+| Sidecar safety | `unsupported_version_is_rejected_without_backup`, `unsupported_v2_shape_is_rejected_without_backup`, `corrupt_sidecar_is_backed_up`, `lock_prevents_a_second_writer` |
+| Prompt/JSON export | `comment_prompt_is_a_stable_golden`, `prompt_sanitizes_control_characters`, `approved_prompt`, `quotes_preserve_blank_lines_and_bodies_stay_verbatim`, `resolve_command_includes_a_custom_sidecar`, `json_filtering_and_exit_code` |
+| TUI layout and input | `tests/tui.rs::renders_at_80x24_and_wide`, `renders_at_100x30`, `empty_document_message_is_reachable`, `help_overlay_fits_and_scrolls_at_80x24`, `standard_mode_uses_plain_brackets_for_headings`, `mouse_click_and_drag_select_lines`, `mouse_actions_do_not_bypass_an_open_editor` |
+| Comments/suggestions/drafts | `comment_editor_creates_item`, `suggestion_editor_creates_item`, `edit_existing_comment`, `drafts_from_an_older_revision_are_discarded`, `update_methods_validate_and_refresh_timestamps`, `reload_clears_selection_and_recomputes_search` |
+| Control-character safety | `sanitize::tests::clean_text_is_borrowed`, `escapes_control_characters`, `replaces_c1_controls_and_keeps_layout_whitespace`, `layout::tests::control_characters_are_display_safe`, `prompt_sanitizes_control_characters` |
+| Images and Mermaid | `resolves_and_encodes_local_png`, `rasterizes_svg`, `decodes_webp_and_preserves_pixel_data`, `auto_fallback_retries_the_mmdc_pipeline_after_any_failure`, `cache_key_changes_with_content_and_target_size`, `stale_worker_results_are_discarded_after_clear_encodings`, `tests/tui.rs::partially_visible_media_keeps_a_stable_cache_key` |
+| Agent handshake | `tests/cli.rs::request_status_export_resolve_flow`, `wait_returns_feedback_and_times_out`, `wait_returns_approval`, `resolve_validates_the_document`; recipe tests in `agent::tests` including duplicate/orphan marker handling |
+| tmux adapter | `tests/cli.rs::tmux_adapter_builds_popup_and_detach_commands`; sentinel propagation and result-file fallback |
+| Editor bridge | `tests/bridge.rs`: state purity, sync idempotence, comment/suggestion/edit/resolve/unresolve/delete/reattach/signoff, expect-hash and line-range validation, lock behaviour, corrupt/v2 sidecars, CRLF and missing-newline selections, custom sidecars |
+| VS Code extension | 17 Vitest/jsdom tests for annotation ranges, selection reduction, bridge envelopes, link/image security; `npm run check`, `npm run build`, and `npm run package` pass; VSIX installs into an isolated VS Code 1.145 profile |
 
 ## Manual checks
 
-1. `./init.sh` and `./harness/gate.sh` — final gate evidence is recorded in the
-   release session.
-2. TUI smoke test in a real tmux pane — the release binary rendered Markdown,
-   outline/review panes, and a half-block Mermaid diagram; `q` restored the
-   terminal and exited 1 (aborted). Fixture: `tests/fixtures/spec.md`.
-3. `mdreview export tests/fixtures/spec.md` emits the numbered prompt and exits
-   10 when feedback exists; covered by CLI integration tests.
-4. Reopen after editing — covered by reload/re-anchor tests; manual re-run is
-   documented in `README.md`.
-5. Install recipes — covered by `agent::tests` and `tests/cli.rs::install_writes_recipes`.
-6. tmux popup — command construction and all sentinel outcomes are covered
-   with a fake `tmux`; a real tmux 3.2a client attached through a pty returned
-   status 21 for `display-popup -E "exit 21"` and 20 for `exit 20`, confirming
-   sentinel propagation. `__tui` also writes its outcome to
-   `MDREVIEW_RESULT_FILE` as a fallback.
-7. Kitty/WezTerm image pixels — not available in this headless WSL session.
-   Protocol selection, encoding, and half-block fallback are tested; visual
-   confirmation on Kitty/WezTerm remains a manual check for the user's desktop.
-8. Mermaid Rust engine and invalid-diagram source fallback — covered by media
-   and TUI tests; also visible in the PTY fixture.
-9. `harness/qa.sh` now validates the model invocation and report shape, filters
-   the harness `[claude-code:...]` warning, and exits non-zero without
-   overwriting the last good report. Both success and failure paths were
-   exercised with a fake `claude`.
-10. Portable save/signoff was exercised in a real PTY: `F10` opened the signoff
-    confirmation, and `F10` after `c` + text saved a comment whose body was read
-    back from the sidecar. `Ctrl+S` is also handled.
+1. Rust baseline and full suite: fmt, clippy (`-D warnings`), and all tests
+   pass on macOS arm64 with `--target aarch64-apple-darwin`.
+2. Bridge end-to-end flow is covered by `tests/bridge.rs` and was exercised
+   against a temporary spec; sidecars remain schema version 1.
+3. VSIX built (1 MB) and installed with
+   `code --install-extension vscode/agentgloss-0.2.0.vsix --force` into an
+   isolated profile.
+4. PTY close check passed on 2026-11-28: a `script` PTY ran the TUI, SIGHUP
+   produced exit 1, and the sidecar was saved. The panic-hook/mouse-cleanup
+   paths are unit-checked in code review, not driven in a debugger.
+5. The extension activates in an isolated VS Code 1.145 profile with no
+   extension-host errors. Remaining manual/visual check before a release: open
+   the webview in a real VS Code window and exercise the rendered selection →
+   signoff flow, including Mermaid fidelity.
+6. The static musl release gate is v0.2.0; this pass was verified on the macOS
+   host target before tagging.
 
-## Final QA verdict (2026-11-21, post-fix pass)
+## Verdict (2026-11-28)
 
-- **4 PASS, 9 PARTIAL, 0 FAIL; no critical or major findings.**
-- Gate evidence: 84 library + 15 CLI + 31 TUI + 1 performance = 131 tests,
-  0 failures; fmt and clippy clean; clean tree; 100% tasks; static-pie binary.
-- Release blockers from earlier passes were verified fixed: portable save/signoff,
-  custom-sidecar resolve commands, orphan-END preservation, modal mouse blocking,
-  result-file tmux sentinels, QA report validation, and complete gate summaries.
-- Full report: `state/qa_report.md`. Remaining PARTIAL items are minor
-  test-matrix/polish gaps documented in `state/fix_plan.md`.
-- Real-PTY checks: `F10` saved a comment and opened signoff; `q` restored the
-  terminal; a real tmux 3.2a popup propagated statuses 21 and 20.
+All P1 and P3 items from the 2026-11-21 QA report are addressed with tests.
+The remaining work is the broader P2 test-matrix expansion, not a feature or
+release blocker. The sidecar schema and agent handshake are unchanged.

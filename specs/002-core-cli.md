@@ -56,7 +56,7 @@ CLI flags override config. Unknown keys warn, never crash. No network.
 - `wait`: poll until signoff or timeout. A signoff is valid only when its document hash matches the current file. Feedbacks exit 10; approval exits 0; timeout exits 3.
 - `export`: print the prompt or JSON. Exit 10 if open or stale items exist, otherwise 0. `--all` includes resolved items.
 - `status`: human summary or JSON with round, counts, approval, requested timestamp. Human/JSON status also reports `changed` when the document hash differs from the sidecar and `invalidated` when a stored approval no longer matches.
-- `resolve`: validate IDs, mark resolved with the current round, save. Unknown IDs exit 2.
+- `resolve`: load and validate the Markdown file, reconcile the store against the current revision, validate IDs, mark resolved with the current round, and save. A missing file or unknown ID exits 2.
 - `install`: see spec 008.
 
 ## Tests

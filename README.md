@@ -8,12 +8,13 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
 ## Status
 
-MVP implemented and tested:
+MVP implemented and tested (v0.2.0):
 
-- 104 library tests, 15 CLI integration tests, 33 TUI integration tests, 1 performance test (153 total)
+- 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, 1 performance test (191 Rust tests), plus 17 VS Code extension tests (208 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
+- Hidden JSON bridge and a VS Code review webview (see below)
 
 ## Features
 
@@ -28,6 +29,8 @@ MVP implemented and tested:
 - Local images, SVG rasterization, and Mermaid (Rust renderer, optional mermaid-cli)
 - Standalone, agent handshake, and tmux launch paths
 - Agent install recipes for Claude Code, Codex, Gemini, and generic CLIs
+- Hidden JSON bridge (`bridge state` / `bridge apply`) for editor integrations
+- VS Code extension with a rendered review webview, bundled Mermaid v11, inline comments/suggestions, and signoff
 
 ## Install
 
@@ -41,7 +44,7 @@ The installer downloads the latest release, verifies its SHA-256 checksum, and i
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
-  | sh -s -- --version v0.1.1 --dir "$HOME/bin"
+  | sh -s -- --version v0.2.0 --dir "$HOME/bin"
 ```
 
 Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
@@ -63,6 +66,20 @@ macOS binaries are ad-hoc signed. If Gatekeeper quarantines the downloaded binar
 > Renaming from mdreview: the config directory is now `~/.config/agentgloss` (`~/Library/Application Support/agentgloss` on macOS); an existing `~/.config/mdreview` is not read. Old `<!-- mdreview:* -->` marker blocks are not recognized; delete the old block, then re-run `agentgloss install <agent>` to install the new recipes.
 
 ## Build
+
+### macOS development build
+
+On a machine without a musl cross toolchain, build and test the host target.
+Do not source `scripts/env.sh` there; passing `--target` overrides the musl
+default in `.cargo/config.toml`:
+
+```sh
+export PATH="$HOME/.cargo/bin:$PATH"
+cargo build --target aarch64-apple-darwin
+cargo test --all-features --target aarch64-apple-darwin
+```
+
+### Static Linux release binary
 
 The project targets a static `x86_64-unknown-linux-musl` binary. On this machine, Rust and a host linker are provided by:
 
@@ -89,9 +106,9 @@ Maintainers publish from `main`:
 
 1. Update `CHANGELOG.md` and the `Cargo.toml` version, then merge the change to `main`.
 2. Tag a commit that is on `main` — the workflow refuses a tag whose commit is not an ancestor of `main` — then `git tag v<version> && git push origin v<version>`.
-3. The release workflow builds the Linux and macOS tarballs, writes `SHA256SUMS`, and publishes the GitHub Release.
+3. The release workflow builds the Linux and macOS tarballs plus the VS Code VSIX, writes `SHA256SUMS`, and publishes the GitHub Release.
 4. The workflow then publishes `agentgloss` to crates.io using the `CARGO_REGISTRY_TOKEN` repository secret. Add it once with `gh secret set CARGO_REGISTRY_TOKEN` (a crates.io token with publish scope) or under Settings → Secrets and variables → Actions. Re-running a tag skips an already-published version.
-5. Verify the installer on Linux x86_64 and Apple Silicon, and `cargo install agentgloss --version <version>` in a clean environment.
+5. Verify the installer on Linux x86_64 and Apple Silicon, `cargo install agentgloss --version <version>` in a clean environment, and install the VSIX asset from the release.
 
 ## Quick start
 
@@ -126,19 +143,56 @@ agentgloss review docs/specs/checkout.md --detach   # agent polls with wait
 | `resolve <file> <ids...>` | Mark items resolved |
 | `install <agent>` | Write Claude/Codex/Gemini/generic integration recipes |
 | `__tui <file>` | Hidden tmux entry point |
+| `bridge state\|apply <file>` | Hidden JSON bridge for editors (spec 010) |
 
 Common flags: `--keys vim|standard`, `--no-mouse`, `--protocol auto|kitty|iterm2|sixel|halfblocks`, `--theme auto|dark|light`, `--sidecar <path>`, `--tmux`, `--detach`, `--format prompt|json`, `--all`. `--sidecar` is accepted by `review`, `request`, `wait`, `export`, `status`, and `resolve`.
 
 Exit codes: `0` approved/no open items, `10` open feedback, `1` aborted, `2` error, `3` wait timeout.
 
+## VS Code extension
+
+`vscode/` contains a VS Code extension that renders the review in a webview
+with bundled Mermaid v11. It uses the hidden bridge and writes the same
+sidecar, so the terminal TUI and the extension are interchangeable.
+
+```sh
+cd vscode
+npm ci
+npm run check
+npm test
+npm run package
+code --install-extension agentgloss-0.2.0.vsix --force
+```
+
+The v0.2.0 GitHub release also ships `agentgloss-0.2.0.vsix` with its checksum
+entry in `SHA256SUMS`. Set `agentgloss.path` (machine scope) when the binary is
+not on `PATH`. The extension requires a trusted workspace and spawns the binary
+without a shell.
+
+Commands:
+
+- **agentgloss: Open Review** — rendered review panel beside the Markdown file.
+- **agentgloss: Comment on Selection** / **Suggest Edit for Selection** — exact
+  line selections from the Markdown editor context menu.
+
+Rendered selections snap to annotated blocks and paragraphs; use the
+source-editor commands when you need a precise line inside a table or fence.
+The webview opens under the document directory/workspace for local images and
+renders remote images as links. It is packaged as a VSIX but not published to
+the Marketplace.
+
 ## Review workflow
 
 1. The agent writes a spec and runs `agentgloss request <file>`.
-2. You run `agentgloss review <file>` (separate pane, or the agent opens a tmux popup).
+2. You run `agentgloss review <file>` (separate pane, the agent opens a tmux
+   popup, or you use **agentgloss: Open Review** in VS Code).
 3. Select text or a block, press `c` for a comment or `s` for a suggested edit, then `F10` (or `Ctrl+Enter`) to save.
 4. `F10` (or `Ctrl+Enter`) again opens signoff. A clean review is approved; otherwise the review is sent to the agent.
 5. The agent runs `agentgloss export <file>` or `agentgloss wait <file>`, addresses the numbered items, and runs `agentgloss resolve <file> <ids>`.
 6. Reopen the review after the revision. Open items re-anchor; stale items remain visible for reattachment.
+
+TUI suggestions are title-less; the optional suggestion note is available
+through the editor bridge/webview and is included in prompt and JSON exports.
 
 ### Agent recipes
 
@@ -160,7 +214,7 @@ Vim mode is the default. `F2` switches between Vim and standard input.
 | Move | `j`/`k` | Up/Down |
 | Half page | `Ctrl-d`/`Ctrl-u` | PgUp/PgDn |
 | Top/bottom | `gg`/`G` | Home/End |
-| Headings | `]]`/`[[` | `Ctrl-]`/`Ctrl-[` |
+| Headings | `]]`/`[[` | `]`/`[` |
 | Blocks | `}`/`{` | `Ctrl-Down`/`Ctrl-Up` |
 | Select | `v`, `V`, `P` | Shift+arrows, Shift+Home/End, `Ctrl-p` |
 | Comment / suggestion | `c` / `s` | `c` / `s` |
@@ -168,10 +222,11 @@ Vim mode is the default. `F2` switches between Vim and standard input.
 | Resolve / reopen / edit | `x` / `X` / `e` | `x` / `X` / `e` |
 | Reattach stale item | `r` | `r` |
 | Delete item | `d` | Delete |
+| Save review state | `Ctrl-s` | `Ctrl-s` |
 | Sign off | `F10` / `Ctrl+Enter` | `F10` / `Ctrl+Enter` |
 | Toggle view | `F3` | `F3` |
 | Focus panes | `Tab` | `Tab` |
-| Help | `?` | `F1` |
+| Help (scroll with `j`/`k`, PgUp/PgDn) | `?` | `F1` |
 | Quit | `q` | `q` |
 
 Mouse: click to place the cursor, drag to select, wheel to scroll, click outline/review items, and use the footer action buttons.
@@ -191,7 +246,7 @@ Mouse: click to place the cursor, drag to select, wheel to scroll, click outline
 
 Protocol detection is environment-based and can be overridden with `--protocol`. The interactive stdio query was intentionally removed: its reader thread stole keyboard input during PTY testing.
 
-Images are local-only. Remote URLs render as links. Mermaid uses the compiled Rust renderer; `mermaid-cli` is optional via `mermaid_engine = "mmdc"` (or automatic fallback when the Rust parser fails and `mmdc` is on PATH). Media decoding and encoding run on worker threads; the TUI shows a placeholder until the result arrives.
+Images are local-only. Remote URLs render as links. Mermaid uses the compiled Rust renderer; `mermaid-cli` is optional via `mermaid_engine = "mmdc"` (or automatic fallback when any stage of the Rust pipeline fails and `mmdc` is on PATH). Media hashing, decoding, and encoding run on worker threads; the cache key includes the target cell size and terminal pixel size, and results from a previous layout generation are discarded. The TUI shows a placeholder until the result arrives.
 
 ## Sidecar
 
@@ -202,7 +257,7 @@ The sidecar lives at `<file>.review.json`, with a lock at `<file>.review.json.lo
 - items with stable `cN` IDs, status, body, suggestion original/replacement, history
 - anchors with heading path, block index, quote, prefix/suffix context, byte/line range, and document hash
 
-Writes are atomic. Corrupt JSON is backed up to `<sidecar>.bak.<timestamp>`. Unknown schema versions are rejected without overwriting. Mutating commands and `export` take an exclusive sidecar lock; `export` exits 2 if a review currently holds it, so run it after the TUI closes.
+Writes are atomic. Corrupt JSON is backed up to `<sidecar>.bak.<timestamp>`. Unknown schema versions are rejected without overwriting. Mutating commands and `export` take an exclusive sidecar lock; `export` exits 2 if a review currently holds it, so run it after the TUI closes. The TUI holds the lock for its whole session. The editor bridge takes the lock per mutation, while `bridge state` is lock-free so the webview stays readable while the TUI is open.
 
 ## Configuration
 
@@ -244,7 +299,16 @@ source scripts/env.sh
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-features
+
+cd vscode
+npm ci
+npm run check
+npm test
+npm run package
 ```
+
+On macOS without the musl toolchain, use the host target for the Rust
+commands as described in [Build](#build).
 
 Manual PTY smoke test:
 
@@ -263,6 +327,7 @@ tmux send-keys -t agentgloss q
 - Media cache is in-memory; disk caching and an LRU bound are deferred.
 - `mermaid-rs-renderer` is pre-1.0; use `mmdc` for official fidelity.
 - Remote image fetching, ACP/MCP, CI gating, comment threads, and full Vim emulation are out of scope; remote URLs render as link-styled text.
+- VS Code rendered selections are block/paragraph level; use the source-editor commands for exact lines. Custom sidecar paths are not configurable in the webview, and the extension is not published to the Marketplace.
 - `loop.sh`, `plan.sh`, and `qa.sh` require a `claude` CLI on PATH. `init.sh`, `gate.sh`, and `report.sh` do not.
 
 ## License

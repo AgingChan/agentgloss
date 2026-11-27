@@ -1,7 +1,7 @@
 # agentgloss — Terminal Spec Reviewer Design
 
 - **Date:** 2026-11-20 (updated 2026-11-28)
-- **Status:** MVP complete and v0.2.0 released 2026-11-28; 191 Rust tests plus 17 VS Code extension tests (208 total); the editor bridge and VS Code extension were added in this release
+- **Status:** MVP complete and v0.2.1 released 2026-11-28; 191 Rust tests plus 19 VS Code extension tests (210 total); the editor bridge and VS Code extension were added in this release
 - **Name:** agentgloss (formerly mdreview, which collides with an existing Python/Textual project)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 
@@ -148,7 +148,7 @@ The Linux release build environment is `scripts/env.sh`: a conda `rustbuild` GCC
 ## 12. Validation
 
 - 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, and 1 performance test pass (191 Rust tests); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
-- The VS Code extension contributes 17 Vitest/jsdom tests (208 automated tests total) and packages as a VSIX.
+- The VS Code extension contributes 19 Vitest/jsdom tests (209 automated tests total) and packages as a VSIX.
 - Additional coverage includes tmux feedback/abort exit codes, custom sidecars, export locking, stale approval status, reattachment, narrow-terminal overlays, mouse hit-testing, asynchronous content-addressed media caching, grapheme-safe wrapping, multi-paragraph lists and footnotes, control-character sanitization, and a 2,000-line performance test.
 
 ### Editor bridge and VS Code extension (2026-11-28)

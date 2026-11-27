@@ -8,9 +8,9 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents.
 
 ## Status
 
-MVP implemented and tested (v0.2.0):
+MVP implemented and tested (v0.2.1):
 
-- 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, 1 performance test (191 Rust tests), plus 17 VS Code extension tests (208 total)
+- 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, 1 performance test (191 Rust tests), plus 19 VS Code extension tests (210 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
@@ -44,7 +44,7 @@ The installer downloads the latest release, verifies its SHA-256 checksum, and i
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
-  | sh -s -- --version v0.2.0 --dir "$HOME/bin"
+  | sh -s -- --version v0.2.1 --dir "$HOME/bin"
 ```
 
 Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
@@ -161,17 +161,19 @@ npm ci
 npm run check
 npm test
 npm run package
-code --install-extension agentgloss-0.2.0.vsix --force
+code --install-extension agentgloss-0.2.1.vsix --force
 ```
 
-The v0.2.0 GitHub release also ships `agentgloss-0.2.0.vsix` with its checksum
+The v0.2.1 GitHub release also ships `agentgloss-0.2.1.vsix` with its checksum
 entry in `SHA256SUMS`. Set `agentgloss.path` (machine scope) when the binary is
 not on `PATH`. The extension requires a trusted workspace and spawns the binary
 without a shell.
 
-Commands:
+Commands and entry points:
 
 - **agentgloss: Open Review** — rendered review panel beside the Markdown file.
+  Also available as an editor-title button (the preview icon), in the Explorer
+  file context menu, and in the editor-tab context menu.
 - **agentgloss: Comment on Selection** / **Suggest Edit for Selection** — exact
   line selections from the Markdown editor context menu.
 

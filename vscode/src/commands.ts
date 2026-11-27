@@ -17,19 +17,22 @@ export function registerCommands(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("agentgloss.openReview", async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor || !isMarkdown(editor.document)) {
-        void vscode.window.showErrorMessage(
-          "agentgloss: open a Markdown file first.",
-        );
-        return;
-      }
-      if (!(await ensureTrusted())) {
-        return;
-      }
-      ReviewPanel.open(context, editor.document.uri);
-    }),
+    vscode.commands.registerCommand(
+      "agentgloss.openReview",
+      async (resource?: unknown) => {
+        const target = resolveMarkdownUri(resource);
+        if (!target) {
+          void vscode.window.showErrorMessage(
+            "agentgloss: open or select a Markdown file first.",
+          );
+          return;
+        }
+        if (!(await ensureTrusted())) {
+          return;
+        }
+        ReviewPanel.open(context, target);
+      },
+    ),
     vscode.commands.registerCommand("agentgloss.refresh", async () => {
       if (!(await ensureTrusted())) {
         return;
@@ -75,6 +78,34 @@ function isMarkdown(document: vscode.TextDocument): boolean {
     document.languageId === "markdown" ||
     /\.(md|markdown)$/i.test(document.fileName)
   );
+}
+
+function isMarkdownUri(uri: vscode.Uri): boolean {
+  return uri.scheme === "file" && /\.(md|markdown)$/i.test(uri.fsPath);
+}
+
+function isUri(value: unknown): value is vscode.Uri {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    "scheme" in value &&
+    "path" in value &&
+    typeof (value as { fsPath?: unknown }).fsPath === "string"
+  );
+}
+
+function resolveMarkdownUri(resource: unknown): vscode.Uri | undefined {
+  const candidates: unknown[] = Array.isArray(resource) ? resource : [resource];
+  for (const candidate of candidates) {
+    if (isUri(candidate) && isMarkdownUri(candidate)) {
+      return candidate;
+    }
+  }
+  const editor = vscode.window.activeTextEditor;
+  if (editor && isMarkdown(editor.document)) {
+    return editor.document.uri;
+  }
+  return undefined;
 }
 
 function binaryPath(): string {

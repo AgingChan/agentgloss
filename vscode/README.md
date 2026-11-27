@@ -30,8 +30,9 @@ with `execFile` (no shell).
 ## Use
 
 1. The agent runs `agentgloss request spec.md` (or open any Markdown file).
-2. Run **agentgloss: Open Review** from the Command Palette (or right-click a
-   Markdown editor).
+2. Run **agentgloss: Open Review** from the Command Palette, the editor-title
+   preview button, the Explorer file context menu, or the editor-tab context
+   menu.
 3. Select rendered text or a block to comment or suggest an edit.
 4. Use the inline cards to edit, resolve, reopen, delete, or reattach stale
    items.
@@ -74,7 +75,7 @@ npm run package   # VSIX in this directory
 Install the VSIX with:
 
 ```sh
-code --install-extension agentgloss-0.2.0.vsix --force
+code --install-extension agentgloss-0.2.1.vsix --force
 ```
 
 ## Known limitations

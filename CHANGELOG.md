@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-11-28
+
+### Added
+
+- VS Code: an editor-title **Open Review** button (preview icon), an Explorer file context-menu entry, and an editor-tab context-menu entry.
+
 ## 0.2.0 — 2026-11-28
 
 ### Added

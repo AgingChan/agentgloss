@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-11-28
+
+- Added the **Open Review** editor-title button (preview icon), the Explorer
+  file context menu entry, and the editor-tab context menu entry.
+- Added a manifest test for the contributed commands and menus.
+
 ## 0.2.0
 
 - Rendered Markdown review webview with bundled Mermaid v11 diagrams.

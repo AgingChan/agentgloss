@@ -86,3 +86,10 @@
 - Added the VS Code **Open Review** editor-title button (preview icon), the Explorer file context menu entry, and the editor-tab context menu entry. The command now accepts Explorer URIs as well as the active editor.
 - Added `test/manifest.test.ts`; extension tests are now 19 (210 automated tests total). `npm run check`, `npm test`, and VSIX packaging pass.
 - The entry points ship as v0.2.1; the real-window webview selection → signoff check remains manual.
+
+## 2026-11-28 — Session 9: v0.2.1 release
+
+- Merged and tagged v0.2.1 (`cd866dc`); release workflow run 46051858621 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46051858621.
+- GitHub release assets verified: `agentgloss-0.2.1.vsix`, both platform tarballs, and `SHA256SUMS`: https://github.com/AgingChan/agentgloss/releases/tag/v0.2.1.
+- The crates.io publish job succeeded for 0.2.1. The VSIX manifest contains version 0.2.1, the `$(open-preview)` icon, and the `editor/title`, `explorer/context`, `editor/title/context`, and `editor/context` menus.
+- Remaining manual check: drive the webview in a real VS Code window and exercise the rendered selection → signoff flow (including Mermaid fidelity).

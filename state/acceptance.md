@@ -33,9 +33,9 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
    pass on macOS arm64 with `--target aarch64-apple-darwin`.
 2. Bridge end-to-end flow is covered by `tests/bridge.rs` and was exercised
    against a temporary spec; sidecars remain schema version 1.
-3. VSIX built (1 MB) and installed with
-   `code --install-extension vscode/agentgloss-0.2.1.vsix --force` into an
-   isolated profile.
+3. VSIX v0.2.1 built (1 MB) and its manifest verified (version, preview icon,
+   and four menu contributions). The earlier v0.2.0 VSIX was installed into an
+   isolated VS Code profile; the release asset is published on GitHub.
 4. PTY close check passed on 2026-11-28: a `script` PTY ran the TUI, SIGHUP
    produced exit 1, and the sidecar was saved. The panic-hook/mouse-cleanup
    paths are unit-checked in code review, not driven in a debugger.

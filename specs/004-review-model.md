@@ -82,7 +82,8 @@ Resolved items are never re-anchored. Every successful re-anchor appends a histo
 ## Storage guarantees
 
 - Atomic writes via temp + rename.
-- Exclusive lock while a TUI session or mutating command runs.
+- Exclusive lock while a TUI session or mutating command runs, and while
+  `export` renders a snapshot, so an export never races a writer.
 - Corrupt JSON backup and recovery as described in spec 002.
 - Unknown `version` is rejected without overwriting the file.
 

@@ -103,7 +103,12 @@ pub fn layout_with_media(
     let mut out = Vec::new();
     for (index, block) in document.blocks.iter().enumerate() {
         if index > 0 {
-            out.push(blank_line(block.source.start, block.index, document));
+            let previous = &document.blocks[index - 1];
+            let adjacent_items = matches!(previous.kind, BlockKind::ListItem { .. })
+                && matches!(block.kind, BlockKind::ListItem { .. });
+            if !adjacent_items {
+                out.push(blank_line(block.source.start, block.index, document));
+            }
         }
         match &block.kind {
             BlockKind::Image { src, alt, .. } => {
@@ -171,7 +176,13 @@ pub fn layout_with_media(
                 let mut cells = Vec::new();
                 push_prefix(&mut cells, block);
                 push_inlines(&mut cells, &block.inlines, block.source.start);
-                let mut lines = wrap_cells(&cells, width, block.index, document);
+                let mut lines = wrap_cells_with_hanging(
+                    &cells,
+                    width,
+                    block.index,
+                    document,
+                    hanging_width(block),
+                );
                 if lines.is_empty() {
                     lines.push(blank_line(block.source.start, block.index, document));
                 }
@@ -189,12 +200,22 @@ fn push_prefix(cells: &mut Vec<Cell>, block: &super::Block) {
             push_str(cells, "│ ", InlineStyle::Plain, source);
         }
     }
+    let list_depth = block.depth.saturating_sub(block.quote_depth);
+    for _ in 0..list_depth {
+        push_str(cells, "  ", InlineStyle::Plain, source);
+    }
     if let BlockKind::ListItem { marker, .. } = &block.kind {
-        for _ in 0..block.depth.saturating_sub(block.quote_depth) {
-            push_str(cells, "  ", InlineStyle::Plain, source);
-        }
         push_str(cells, marker, InlineStyle::Plain, source);
     }
+}
+
+fn hanging_width(block: &super::Block) -> usize {
+    let list_depth = block.depth.saturating_sub(block.quote_depth);
+    let mut width = list_depth * 2;
+    if let BlockKind::ListItem { marker, .. } = &block.kind {
+        width += UnicodeWidthStr::width(marker.as_str());
+    }
+    width
 }
 
 fn flatten_table_cells(table: &Table, fallback: usize) -> Vec<Cell> {
@@ -470,9 +491,10 @@ fn push_inlines(cells: &mut Vec<Cell>, inlines: &[Inline], fallback: usize) {
                     });
                 }
             } else {
+                let text = crate::sanitize::sanitize_terminal_text(grapheme).into_owned();
                 cells.push(Cell {
-                    text: grapheme.to_string(),
-                    width: UnicodeWidthStr::width(grapheme),
+                    width: UnicodeWidthStr::width(text.as_str()),
+                    text,
                     style: inline.style.clone(),
                     source,
                 });
@@ -494,9 +516,10 @@ fn push_str(cells: &mut Vec<Cell>, text: &str, style: InlineStyle, source: usize
                 });
             }
         } else {
+            let text = crate::sanitize::sanitize_terminal_text(grapheme).into_owned();
             cells.push(Cell {
-                text: grapheme.to_string(),
-                width: UnicodeWidthStr::width(grapheme),
+                width: UnicodeWidthStr::width(text.as_str()),
+                text,
                 style: style.clone(),
                 source: source..source,
             });
@@ -513,6 +536,16 @@ struct Cell {
 }
 
 fn wrap_cells(cells: &[Cell], width: usize, block: usize, document: &Document) -> Vec<VisualLine> {
+    wrap_cells_with_hanging(cells, width, block, document, 0)
+}
+
+fn wrap_cells_with_hanging(
+    cells: &[Cell],
+    width: usize,
+    block: usize,
+    document: &Document,
+    hanging: usize,
+) -> Vec<VisualLine> {
     let mut lines = Vec::new();
     let mut start = 0usize;
     let mut line_width = 0usize;
@@ -527,11 +560,30 @@ fn wrap_cells(cells: &[Cell], width: usize, block: usize, document: &Document) -
             return;
         }
         let slice = &cells[*start..end];
-        if let Some(line) = make_line(slice, block, document) {
+        let line = if hanging == 0 || lines.is_empty() {
+            make_line(slice, block, document)
+        } else {
+            let source = slice
+                .first()
+                .map(|cell| cell.source.start)
+                .unwrap_or_default();
+            let mut prefixed = Vec::with_capacity(hanging + slice.len());
+            for _ in 0..hanging {
+                prefixed.push(Cell {
+                    text: " ".to_string(),
+                    width: 1,
+                    style: InlineStyle::Plain,
+                    source: source..source,
+                });
+            }
+            prefixed.extend_from_slice(slice);
+            make_line(&prefixed, block, document)
+        };
+        if let Some(line) = line {
             lines.push(line);
         }
         *start = end;
-        *line_width = 0;
+        *line_width = hanging;
         *last_space = None;
     };
 
@@ -545,7 +597,7 @@ fn wrap_cells(cells: &[Cell], width: usize, block: usize, document: &Document) -
                 &mut last_space,
             );
             start = index + 1;
-            line_width = 0;
+            line_width = hanging;
             last_space = None;
             continue;
         }
@@ -744,11 +796,74 @@ mod tests {
     }
 
     #[test]
+    fn adjacent_list_items_have_no_blank_separator() {
+        let doc = Document::from_source("x.md", "- one\n- two\n".to_string());
+        let lines = layout(&doc, 40);
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert!(lines[0].text.contains("- one"));
+        assert!(lines[1].text.contains("- two"));
+    }
+
+    #[test]
+    fn nested_items_are_indented_without_blank_separators() {
+        let doc = Document::from_source("x.md", "- one\n  - nested\n".to_string());
+        let lines = layout(&doc, 40);
+        let nested = lines
+            .iter()
+            .find(|line| line.text.contains("nested"))
+            .expect("nested line");
+        assert!(nested.text.starts_with("    - nested"), "{:?}", nested.text);
+        assert!(!lines.iter().any(|line| line.text.is_empty()), "{lines:?}");
+    }
+
+    #[test]
+    fn multi_paragraph_items_indent_continuations() {
+        let doc = Document::from_source("x.md", "- first\n\n  second\n".to_string());
+        let lines = layout(&doc, 40);
+        let second = lines
+            .iter()
+            .find(|line| line.text.contains("second"))
+            .expect("second paragraph");
+        assert!(second.text.starts_with("  second"), "{:?}", second.text);
+    }
+
+    #[test]
+    fn wrapped_list_items_use_a_hanging_indent() {
+        let doc = Document::from_source("x.md", "- alpha beta gamma delta\n".to_string());
+        let lines = layout(&doc, 12);
+        assert!(lines.len() > 1, "{lines:?}");
+        assert!(
+            lines[0].text.starts_with("  - alpha"),
+            "{:?}",
+            lines[0].text
+        );
+        for line in &lines[1..] {
+            assert!(line.text.starts_with("    "), "{:?}", line.text);
+            assert!(line.text.chars().count() <= 12, "{:?}", line.text);
+        }
+    }
+
+    #[test]
     fn tabs_expand_to_four_spaces() {
         let source = "a\tb\n";
         let doc = Document::from_source("x.md", source.to_string());
         let lines = layout(&doc, 80);
         assert!(lines[0].text.contains("a    b"), "{:?}", lines[0].text);
+    }
+
+    #[test]
+    fn control_characters_are_display_safe() {
+        let source = "# Evil\x1b]0;title\x07\n\nBody\u{9b}31m text\n";
+        let doc = Document::from_source("x.md", source.to_string());
+        let lines = layout(&doc, 80);
+        for line in &lines {
+            assert!(!line.text.contains('\x1b'), "{:?}", line.text);
+            assert!(!line.text.contains('\x07'), "{:?}", line.text);
+            assert!(!line.text.contains('\u{9b}'), "{:?}", line.text);
+        }
+        assert!(lines.iter().any(|line| line.text.contains('\u{241b}')));
+        assert!(doc.source.contains('\x1b'));
+        assert!(doc.source.contains('\u{9b}'));
     }
 
     #[test]

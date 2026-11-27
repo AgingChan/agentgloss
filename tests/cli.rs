@@ -162,6 +162,19 @@ fn install_writes_recipes() {
 }
 
 #[test]
+fn resolve_validates_the_document() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_spec(dir.path());
+    let id = seed_comment(&path, "Needs a document.");
+    let sidecar = sidecar_path(&path);
+    let before = std::fs::read(&sidecar).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    let output = run(dir.path(), &["resolve", "spec.md", &id]);
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    assert_eq!(std::fs::read(&sidecar).unwrap(), before);
+}
+
+#[test]
 fn export_acquires_the_store_lock() {
     let dir = tempfile::tempdir().unwrap();
     let path = write_spec(dir.path());

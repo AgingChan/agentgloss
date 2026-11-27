@@ -1,3 +1,9 @@
+# agentgloss QA report
+
+> Historical report from the 2026-11-21 mdreview-era pass, retained for
+> provenance. Every P1 and P3 finding below was addressed in the 2026-11-28
+> cleanup pass; see `state/fix_plan.md` and progress Session 7.
+
 # mdreview QA Evaluator Pass
 
 **Scope:** all 13 tasks (`MDREVIEW-1` … `MDREVIEW-13`), all marked `done`.

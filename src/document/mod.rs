@@ -110,6 +110,30 @@ impl BlockKind {
             BlockKind::Footnote => "footnote",
         }
     }
+
+    /// Stable snake_case identifier used by the editor bridge.
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            BlockKind::Heading(_) => "heading",
+            BlockKind::Paragraph => "paragraph",
+            BlockKind::ListItem { .. } => "list_item",
+            BlockKind::CodeBlock { .. } => "code_block",
+            BlockKind::Table => "table",
+            BlockKind::Blockquote => "blockquote",
+            BlockKind::Rule => "rule",
+            BlockKind::Image { .. } => "image",
+            BlockKind::Mermaid { .. } => "mermaid",
+            BlockKind::Html => "html",
+            BlockKind::Footnote => "footnote",
+        }
+    }
+
+    pub fn heading_level(&self) -> Option<u8> {
+        match self {
+            BlockKind::Heading(level) => Some(*level),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -343,6 +367,10 @@ impl Builder {
         });
     }
 
+    fn has_content(&self) -> bool {
+        !self.inlines.is_empty() || self.image.is_some() || self.table.is_some()
+    }
+
     fn finish(mut self, blocks: &mut Vec<Block>, document: &Document, heading_path: Vec<String>) {
         let source = if matches!(
             self.kind,
@@ -397,7 +425,6 @@ struct BlockParser<'a> {
     list_counters: Vec<u64>,
     heading_stack: Vec<(u8, String)>,
     quote_depth: usize,
-    paragraph_in_item: bool,
     table: Option<Table>,
     current_row: Vec<TableCell>,
     current_cell_inlines: Vec<Inline>,
@@ -405,7 +432,6 @@ struct BlockParser<'a> {
     in_table: bool,
     in_image: bool,
     image_alt: String,
-    image_src: String,
     image_title: Option<String>,
 }
 
@@ -428,7 +454,6 @@ impl<'a> BlockParser<'a> {
             list_counters: Vec::new(),
             heading_stack: Vec::new(),
             quote_depth: 0,
-            paragraph_in_item: false,
             table: None,
             current_row: Vec::new(),
             current_cell_inlines: Vec::new(),
@@ -436,7 +461,6 @@ impl<'a> BlockParser<'a> {
             in_table: false,
             in_image: false,
             image_alt: String::new(),
-            image_src: String::new(),
             image_title: None,
         }
     }
@@ -601,9 +625,10 @@ impl<'a> BlockParser<'a> {
     fn start_tag(&mut self, tag: Tag<'_>, range: Range<usize>) {
         match tag {
             Tag::Paragraph => {
-                if self.current.is_some() {
-                    self.paragraph_in_item = true;
-                } else {
+                if self.current.as_ref().is_some_and(Builder::has_content) {
+                    self.finish_current();
+                }
+                if self.current.is_none() {
                     let kind = if self.quote_depth > 0 {
                         BlockKind::Blockquote
                     } else {
@@ -703,7 +728,6 @@ impl<'a> BlockParser<'a> {
             } => {
                 self.in_image = true;
                 self.image_alt.clear();
-                self.image_src = dest_url.to_string();
                 self.image_title = if title.is_empty() {
                     None
                 } else {
@@ -729,11 +753,7 @@ impl<'a> BlockParser<'a> {
                 if let Some(builder) = self.current.as_mut() {
                     builder.end = range.end;
                 }
-                if self.paragraph_in_item {
-                    self.paragraph_in_item = false;
-                } else {
-                    self.finish_current();
-                }
+                self.finish_current();
             }
             TagEnd::Heading(_) => {
                 if let Some(mut builder) = self.current.take() {
@@ -824,10 +844,15 @@ impl<'a> BlockParser<'a> {
                     .current_cell_range
                     .take()
                     .unwrap_or_else(|| range.clone());
-                let cell = TableCell {
-                    inlines: std::mem::take(&mut self.current_cell_inlines),
-                    source,
-                };
+                let mut inlines = std::mem::take(&mut self.current_cell_inlines);
+                if inlines.is_empty() {
+                    inlines.push(Inline {
+                        text: String::new(),
+                        style: InlineStyle::Plain,
+                        source: source.clone(),
+                    });
+                }
+                let cell = TableCell { inlines, source };
                 self.current_row.push(cell);
             }
             TagEnd::FootnoteDefinition => {
@@ -950,6 +975,58 @@ mod tests {
         assert_eq!(row[1].inlines[0].text, "code");
         assert!(row[1].source.start < row[1].source.end);
         assert!(d.source[row[1].source.clone()].contains("code"));
+    }
+
+    #[test]
+    fn empty_table_cells_have_inline_source_ranges() {
+        let d = doc("| a |  | c |\n|---|---|---|\n|  | b |  |\n");
+        let table = d.blocks[0].table.as_ref().expect("structured table");
+        assert_eq!(table.header.len(), 3);
+        assert_eq!(table.rows[0].len(), 3);
+        assert!(table.header[1].inlines[0].text.is_empty());
+        assert_eq!(table.header[1].inlines[0].source, table.header[1].source);
+        assert!(table.rows[0][0].inlines[0].text.is_empty());
+        assert_eq!(table.rows[0][0].inlines[0].source, table.rows[0][0].source);
+        assert!(table.rows[0][2].inlines[0].text.is_empty());
+        assert_eq!(table.rows[0][2].inlines[0].source, table.rows[0][2].source);
+    }
+
+    #[test]
+    fn multi_paragraph_lists_and_footnotes_are_separate_blocks() {
+        let d = doc("- first\n\n  second\n\n- next\n\n[^1]: foot one\n\n    foot two\n");
+        let items: Vec<_> = d
+            .blocks
+            .iter()
+            .filter(|block| matches!(block.kind, BlockKind::ListItem { .. }))
+            .collect();
+        assert_eq!(items.len(), 2, "{:?}", d.blocks);
+        assert!(items.iter().any(|block| block.text().contains("first")));
+        assert!(
+            !items.iter().any(|block| block.text().contains("second")),
+            "{:?}",
+            d.blocks
+        );
+        let second = d
+            .blocks
+            .iter()
+            .find(|block| block.text().contains("second"))
+            .expect("second paragraph");
+        assert!(matches!(second.kind, BlockKind::Paragraph));
+        assert!(second.depth >= 1, "{second:?}");
+
+        let footnote = d
+            .blocks
+            .iter()
+            .find(|block| matches!(block.kind, BlockKind::Footnote))
+            .expect("footnote");
+        assert!(footnote.text().contains("foot one"));
+        assert!(!footnote.text().contains("foot two"));
+        let continuation = d
+            .blocks
+            .iter()
+            .find(|block| block.text().contains("foot two"))
+            .expect("footnote continuation");
+        assert!(matches!(continuation.kind, BlockKind::Paragraph));
     }
 
     #[test]

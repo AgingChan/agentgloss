@@ -17,7 +17,7 @@ use std::process::{Command, Stdio};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, OnceLock};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 pub type MediaKey = String;
 
@@ -26,9 +26,17 @@ const MAX_DIMENSION: u32 = 10_000;
 const MAX_PIXELS: u64 = 40_000_000;
 const CACHE_VERSION: u32 = 1;
 
+type StampKey = (PathBuf, u128, u64);
+
 struct MediaResult {
     key: MediaKey,
+    generation: u64,
     result: Result<SlicedProtocol, String>,
+}
+
+struct StampResult {
+    key: StampKey,
+    hash: Result<String, String>,
 }
 
 pub struct MediaManager {
@@ -39,14 +47,19 @@ pub struct MediaManager {
     protocols: HashMap<MediaKey, SlicedProtocol>,
     errors: HashMap<MediaKey, String>,
     pending: HashSet<MediaKey>,
-    hash_cache: HashMap<PathBuf, (SystemTime, u64, String)>,
+    hash_cache: HashMap<PathBuf, (u128, u64, String)>,
+    stamp_pending: HashSet<StampKey>,
+    generation: u64,
     tx: Sender<MediaResult>,
     rx: Receiver<MediaResult>,
+    stamp_tx: Sender<StampResult>,
+    stamp_rx: Receiver<StampResult>,
 }
 
 impl MediaManager {
     pub fn new(options: &TuiOptions) -> Self {
         let (tx, rx) = mpsc::channel();
+        let (stamp_tx, stamp_rx) = mpsc::channel();
         Self {
             picker: Picker::halfblocks(),
             engine: options.mermaid_engine,
@@ -56,8 +69,12 @@ impl MediaManager {
             errors: HashMap::new(),
             pending: HashSet::new(),
             hash_cache: HashMap::new(),
+            stamp_pending: HashSet::new(),
+            generation: 0,
             tx,
             rx,
+            stamp_tx,
+            stamp_rx,
         }
     }
 
@@ -133,7 +150,19 @@ impl MediaManager {
     }
 
     pub fn poll(&mut self) {
+        while let Ok(stamp) = self.stamp_rx.try_recv() {
+            self.stamp_pending.remove(&stamp.key);
+            let hash = match stamp.hash {
+                Ok(hash) => hash,
+                Err(error) => format!("hash-error:{error}"),
+            };
+            self.hash_cache
+                .insert(stamp.key.0, (stamp.key.1, stamp.key.2, hash));
+        }
         while let Ok(result) = self.rx.try_recv() {
+            if result.generation != self.generation {
+                continue;
+            }
             self.pending.remove(&result.key);
             match result.result {
                 Ok(protocol) => {
@@ -168,17 +197,20 @@ impl MediaManager {
         target: (u16, u16),
     ) -> MediaKey {
         let target = (target.0.max(1), target.1.max(1));
+        let font = self.picker.font_size();
         let stamp = self.image_stamp(document_path, src);
         let key = format!(
-            "img:{}:{}:{}x{}:{}:{}",
+            "img:{}:{}:{}x{}:{}:{}x{}:{}",
             CACHE_VERSION,
             src,
             target.0,
             target.1,
             self.protocol_name(),
+            font.width,
+            font.height,
             stamp
         );
-        if self.known(&key) {
+        if self.known(&key) || stamp.starts_with("pending:") {
             return key;
         }
         self.pending.insert(key.clone());
@@ -187,6 +219,7 @@ impl MediaManager {
         let document_path = document_path.to_path_buf();
         let src = src.to_string();
         let job_key = key.clone();
+        let generation = self.generation;
         thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 load_image(&picker, &document_path, &src, target)
@@ -196,6 +229,7 @@ impl MediaManager {
             .unwrap_or_else(|_| Err("media worker panicked".to_string()));
             let _ = tx.send(MediaResult {
                 key: job_key,
+                generation,
                 result,
             });
         });
@@ -205,15 +239,18 @@ impl MediaManager {
     pub fn ensure_mermaid(&mut self, source: &str, target: (u16, u16)) -> MediaKey {
         let target = (target.0.max(1), target.1.max(1));
         let source_hash = hex::encode(Sha256::digest(source.as_bytes()));
+        let font = self.picker.font_size();
         let key = format!(
-            "mermaid:{}:{:?}:{:?}:{}:{}x{}:{}",
+            "mermaid:{}:{:?}:{:?}:{}:{}x{}:{}:{}x{}",
             CACHE_VERSION,
             self.engine,
             self.theme,
             source_hash,
             target.0,
             target.1,
-            self.protocol_name()
+            self.protocol_name(),
+            font.width,
+            font.height
         );
         if self.known(&key) {
             return key;
@@ -225,15 +262,16 @@ impl MediaManager {
         let engine = self.engine;
         let theme = self.theme;
         let job_key = key.clone();
+        let generation = self.generation;
         thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                load_mermaid(&picker, engine, theme, &source, target)
-                    .and_then(|image| encode(&picker, image, target))
+                load_mermaid_media(&picker, engine, theme, &source, target)
                     .map_err(|error| format!("{error:#}"))
             }))
             .unwrap_or_else(|_| Err("media worker panicked".to_string()));
             let _ = tx.send(MediaResult {
                 key: job_key,
+                generation,
                 result,
             });
         });
@@ -246,8 +284,9 @@ impl MediaManager {
             || self.pending.contains(key)
     }
 
-    /// Reuse the content hash while a file's metadata is unchanged, so the UI
-    /// does not re-read and re-hash every visible image on every frame.
+    /// Return a content hash when it is already cached; otherwise hash the
+    /// file on a worker thread and use a metadata-only stamp until it arrives.
+    /// The UI thread only reads file metadata, never file contents.
     fn image_stamp(&mut self, document_path: &Path, src: &str) -> String {
         let Ok(path) = resolve_image_path(document_path, src) else {
             return "missing".to_string();
@@ -262,28 +301,43 @@ impl MediaManager {
         if size > MAX_FILE_BYTES {
             return format!("oversize:{size}");
         }
+        let modified_nanos = modified
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
         if let Some((cached_modified, cached_size, cached_hash)) = self.hash_cache.get(&path)
-            && *cached_modified == modified
+            && *cached_modified == modified_nanos
             && *cached_size == size
         {
             return cached_hash.clone();
         }
-        let Ok(bytes) = std::fs::read(&path) else {
-            return "missing".to_string();
-        };
-        let hash = hex::encode(Sha256::digest(&bytes));
-        self.hash_cache.insert(path, (modified, size, hash.clone()));
-        hash
+        let stamp_key = (path.clone(), modified_nanos, size);
+        if self.stamp_pending.insert(stamp_key.clone()) {
+            let tx = self.stamp_tx.clone();
+            thread::spawn(move || {
+                let hash = std::fs::read(&path)
+                    .map(|bytes| hex::encode(Sha256::digest(&bytes)))
+                    .map_err(|error| error.to_string());
+                let _ = tx.send(StampResult {
+                    key: stamp_key,
+                    hash,
+                });
+            });
+        }
+        format!("pending:{modified_nanos}:{size}")
     }
 
     pub fn cache_dir(&self) -> &Path {
         &self.cache_dir
     }
 
-    /// Drop encoded protocol state after a width/height change.
+    /// Drop encoded protocol state after a width/height change. Worker
+    /// results from the previous generation are discarded when they arrive.
     pub fn clear_encodings(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
         self.protocols.clear();
         self.errors.clear();
+        self.pending.clear();
     }
 }
 
@@ -332,18 +386,47 @@ fn load_image(
     }
 }
 
-fn load_mermaid(
+fn load_mermaid_media(
     picker: &Picker,
     engine: MermaidEngine,
     theme: Theme,
     source: &str,
     target: (u16, u16),
-) -> anyhow::Result<DynamicImage> {
+) -> anyhow::Result<SlicedProtocol> {
     let mmdc = command_exists("mmdc").then(|| std::ffi::OsStr::new("mmdc"));
-    let svg = render_mermaid_svg(engine, theme, source, mmdc)?;
-    rasterize_svg(picker, &svg, target)
+    let rust = || -> anyhow::Result<SlicedProtocol> {
+        let svg = mermaid_rs_renderer::render(source)
+            .map_err(|error| anyhow::anyhow!("Mermaid parse error: {error}"))?;
+        let image = rasterize_svg(picker, &svg, target)?;
+        encode(picker, image, target)
+    };
+    let mmdc_attempt = || -> anyhow::Result<SlicedProtocol> {
+        let program = mmdc.ok_or_else(|| anyhow::anyhow!("mmdc is not installed"))?;
+        let svg = render_with_mmdc_program(program, theme, source)?;
+        let image = rasterize_svg(picker, &svg, target)?;
+        encode(picker, image, target)
+    };
+    match engine {
+        MermaidEngine::Source => anyhow::bail!("Mermaid rendering is disabled"),
+        MermaidEngine::Rust => rust(),
+        MermaidEngine::Mmdc => mmdc_attempt(),
+        MermaidEngine::Auto => with_mmdc_fallback(rust, mmdc_attempt),
+    }
 }
 
+fn with_mmdc_fallback<T>(
+    primary: impl FnOnce() -> anyhow::Result<T>,
+    fallback: impl FnOnce() -> anyhow::Result<T>,
+) -> anyhow::Result<T> {
+    match primary() {
+        Ok(value) => Ok(value),
+        Err(primary_error) => fallback().with_context(|| {
+            format!("Rust Mermaid pipeline failed (render/raster/encode): {primary_error}")
+        }),
+    }
+}
+
+#[cfg(test)]
 fn render_mermaid_svg(
     engine: MermaidEngine,
     theme: Theme,
@@ -658,6 +741,33 @@ mod tests {
         media.wait_for(key, Duration::from_secs(10))
     }
 
+    /// Images are hashed on a worker thread, so the first key is a
+    /// metadata-only placeholder. Re-request until the content-addressed key
+    /// has a protocol or a cached error.
+    fn ready_image(
+        media: &mut MediaManager,
+        document: &Path,
+        src: &str,
+        target: (u16, u16),
+    ) -> MediaKey {
+        let start = Instant::now();
+        loop {
+            let key = media.ensure_image(document, src, target);
+            let slice = Instant::now();
+            while slice.elapsed() < Duration::from_millis(250) {
+                media.poll();
+                if media.get(&key).is_some() || media.error(&key).is_some() {
+                    return key;
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
+            assert!(
+                start.elapsed() < Duration::from_secs(10),
+                "media timeout for {src}"
+            );
+        }
+    }
+
     #[cfg(unix)]
     fn fake_mmdc(dir: &Path) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
@@ -678,9 +788,8 @@ mod tests {
         std::fs::write(&doc, "![x](red.png)\n").unwrap();
         tiny_png(&dir.path().join("red.png"));
         let mut media = MediaManager::new(&options(dir.path()));
-        let key = media.ensure_image(&doc, "red.png", (20, 10));
-        assert!(wait(&mut media, &key), "{:?}", media.error(&key));
-        assert!(media.get(&key).is_some());
+        let key = ready_image(&mut media, &doc, "red.png", (20, 10));
+        assert!(media.get(&key).is_some(), "{:?}", media.error(&key));
     }
 
     #[test]
@@ -689,12 +798,10 @@ mod tests {
         let doc = dir.path().join("spec.md");
         std::fs::write(&doc, "").unwrap();
         let mut media = MediaManager::new(&options(dir.path()));
-        let remote = media.ensure_image(&doc, "https://example.com/a.png", (20, 10));
-        assert!(wait(&mut media, &remote));
+        let remote = ready_image(&mut media, &doc, "https://example.com/a.png", (20, 10));
         assert!(media.get(&remote).is_none());
         assert!(media.error(&remote).unwrap().contains("remote"));
-        let missing = media.ensure_image(&doc, "missing.png", (20, 10));
-        assert!(wait(&mut media, &missing));
+        let missing = ready_image(&mut media, &doc, "missing.png", (20, 10));
         assert!(media.error(&missing).unwrap().contains("not found"));
     }
 
@@ -705,9 +812,8 @@ mod tests {
         let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><rect width="100" height="50" fill="#ff0000"/></svg>"##;
         std::fs::write(dir.path().join("box.svg"), svg).unwrap();
         let mut media = MediaManager::new(&options(dir.path()));
-        let key = media.ensure_image(&doc, "box.svg", (20, 10));
-        assert!(wait(&mut media, &key), "{:?}", media.error(&key));
-        assert!(media.get(&key).is_some());
+        let key = ready_image(&mut media, &doc, "box.svg", (20, 10));
+        assert!(media.get(&key).is_some(), "{:?}", media.error(&key));
     }
 
     #[test]
@@ -731,6 +837,40 @@ mod tests {
             assert!(wait(&mut media, &key), "{:?}", media.error(&key));
             assert!(media.get(&key).is_some());
         }
+    }
+
+    #[test]
+    fn auto_fallback_retries_the_mmdc_pipeline_after_any_failure() {
+        let result = with_mmdc_fallback(|| Err(anyhow::anyhow!("rasterize failed")), || Ok(42));
+        assert_eq!(result.unwrap(), 42);
+        let error = with_mmdc_fallback::<i32>(
+            || Err(anyhow::anyhow!("encode failed")),
+            || Err(anyhow::anyhow!("mmdc failed")),
+        )
+        .unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("encode failed"), "{message}");
+        assert!(message.contains("mmdc failed"), "{message}");
+    }
+
+    #[test]
+    fn stale_worker_results_are_discarded_after_clear_encodings() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut media = MediaManager::new(&options(dir.path()));
+        let key = "stale-key".to_string();
+        let generation = media.generation;
+        media.pending.insert(key.clone());
+        media.clear_encodings();
+        media
+            .tx
+            .send(MediaResult {
+                key: key.clone(),
+                generation,
+                result: Err("stale".to_string()),
+            })
+            .unwrap();
+        media.poll();
+        assert!(media.error(&key).is_none());
     }
 
     #[test]
@@ -782,9 +922,8 @@ mod tests {
         let image = image::RgbImage::from_pixel(3, 2, image::Rgb([0, 0, 255]));
         image.save_with_format(&path, ImageFormat::WebP).unwrap();
         let mut media = MediaManager::new(&options(dir.path()));
-        let key = media.ensure_image(&doc, "blue.webp", (20, 10));
-        assert!(wait(&mut media, &key), "{:?}", media.error(&key));
-        assert!(media.get(&key).is_some());
+        let key = ready_image(&mut media, &doc, "blue.webp", (20, 10));
+        assert!(media.get(&key).is_some(), "{:?}", media.error(&key));
 
         let loaded = load_image(&media.picker, &doc, "blue.webp", (20, 10)).unwrap();
         assert_eq!((loaded.width(), loaded.height()), (3, 2));
@@ -803,8 +942,7 @@ mod tests {
         let mut media = MediaManager::new(&options(dir.path()));
         let stamp = media.image_stamp(&doc, "big.png");
         assert!(stamp.starts_with("oversize:"), "{stamp}");
-        let key = media.ensure_image(&doc, "big.png", (20, 10));
-        assert!(wait(&mut media, &key));
+        let key = ready_image(&mut media, &doc, "big.png", (20, 10));
         assert!(media.error(&key).unwrap().contains("50 MB"));
 
         let huge = DynamicImage::new_luma8(8000, 5001);
@@ -850,21 +988,21 @@ mod tests {
         let image_path = dir.path().join("red.png");
         tiny_png(&image_path);
         let mut media = MediaManager::new(&options(dir.path()));
-        let first = media.ensure_image(&doc, "red.png", (20, 10));
-        assert!(wait(&mut media, &first));
+        let first = ready_image(&mut media, &doc, "red.png", (20, 10));
         assert!(media.get(&first).is_some());
         let duplicate = media.ensure_image(&doc, "red.png", (20, 10));
         assert_eq!(first, duplicate);
 
+        std::thread::sleep(Duration::from_millis(2));
         let blue = image::RgbaImage::from_pixel(2, 2, image::Rgba([0, 0, 255, 255]));
         blue.save(&image_path).unwrap();
-        let changed = media.ensure_image(&doc, "red.png", (20, 10));
+        let changed = ready_image(&mut media, &doc, "red.png", (20, 10));
         assert_ne!(first, changed);
-        assert!(wait(&mut media, &changed));
+        assert!(media.get(&changed).is_some());
 
-        let resized = media.ensure_image(&doc, "red.png", (30, 10));
+        let resized = ready_image(&mut media, &doc, "red.png", (30, 10));
         assert_ne!(changed, resized);
-        assert!(wait(&mut media, &resized));
+        assert!(media.get(&resized).is_some());
 
         media.clear_encodings();
         assert!(media.get(&resized).is_none());
@@ -884,9 +1022,8 @@ mod tests {
             let path = dir.path().join(name);
             let image = image::RgbImage::from_pixel(2, 2, image::Rgb([10, 20, 30]));
             image.save_with_format(&path, format).unwrap();
-            let key = media.ensure_image(&doc, &path.to_string_lossy(), (20, 10));
-            assert!(wait(&mut media, &key), "{name}: {:?}", media.error(&key));
-            assert!(media.get(&key).is_some());
+            let key = ready_image(&mut media, &doc, &path.to_string_lossy(), (20, 10));
+            assert!(media.get(&key).is_some(), "{name}: {:?}", media.error(&key));
         }
     }
 

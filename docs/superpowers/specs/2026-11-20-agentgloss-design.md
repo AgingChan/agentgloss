@@ -1,7 +1,7 @@
 # agentgloss — Terminal Spec Reviewer Design
 
-- **Date:** 2026-11-20 (updated 2026-11-21)
-- **Status:** MVP complete; 153 automated tests passing; final QA pass has no critical or major findings
+- **Date:** 2026-11-20 (updated 2026-11-28)
+- **Status:** MVP complete and v0.2.0 released 2026-11-28; 191 Rust tests plus 17 VS Code extension tests (208 total); the editor bridge and VS Code extension were added in this release
 - **Name:** agentgloss (formerly mdreview, which collides with an existing Python/Textual project)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 
@@ -143,12 +143,23 @@ The local harness mirrors `sotto/harness`:
 - `harness/loop.sh`, `plan.sh`, `qa.sh`, `report.sh`, `add-task.sh`, and the task schema support autonomous sessions and QA.
 - `state/` holds tasks, progress, and the fix plan; `specs/` holds feature specs.
 
-The build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host build scripts and a static `x86_64-unknown-linux-musl` final binary linked by Rust's bundled `rust-lld`. This avoids requiring system sudo or a system C toolchain.
+The Linux release build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host build scripts and a static `x86_64-unknown-linux-musl` final binary linked by Rust's bundled `rust-lld`. This avoids requiring system sudo or a system C toolchain. On macOS, do not source `scripts/env.sh`; build and test the host target with `--target aarch64-apple-darwin` so the musl default in `.cargo/config.toml` is overridden.
 
 ## 12. Validation
 
-- 104 library tests, 15 CLI integration tests, 33 TUI integration tests, and 1 performance test pass (153 total); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
-- Additional coverage includes tmux feedback/abort exit codes, custom sidecars, export locking, stale approval status, reattachment, narrow-terminal overlays, mouse hit-testing, content-addressed media caching, grapheme-safe wrapping, and a 2,000-line performance test.
+- 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, and 1 performance test pass (191 Rust tests); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
+- The VS Code extension contributes 17 Vitest/jsdom tests (208 automated tests total) and packages as a VSIX.
+- Additional coverage includes tmux feedback/abort exit codes, custom sidecars, export locking, stale approval status, reattachment, narrow-terminal overlays, mouse hit-testing, asynchronous content-addressed media caching, grapheme-safe wrapping, multi-paragraph lists and footnotes, control-character sanitization, and a 2,000-line performance test.
+
+### Editor bridge and VS Code extension (2026-11-28)
+
+The hidden `bridge state|apply` JSON commands expose a pure, lock-free state
+read and per-operation review mutations. Line ranges are the only coordinate
+on the wire; Rust builds anchors, re-anchors on the current revision, and owns
+locking and signoff policy. The `vscode/` extension renders Markdown with
+bundled Mermaid v11, maps block/paragraph selections to line ranges, and writes
+the same sidecar, so the TUI and webview are interchangeable. Specs 010 and 011
+are the contracts.
 - PTY smoke test: a real tmux pane rendered the document, Mermaid, and image placeholder, accepted `q`, restored the terminal, and exited with code 1 (aborted).
 - Fake-tmux integration test verifies popup and detached command construction.
 - Media tests cover local PNG/SVG/Mermaid rendering, missing/remote images, size limits, protocol detection, and asynchronous completion.
@@ -161,6 +172,7 @@ The build environment is `scripts/env.sh`: a conda `rustbuild` GCC for host buil
 - `mermaid-rs-renderer` is pre-1.0 and may differ from mermaid-cli; `mmdc` is the escape hatch.
 - tmux 3.2a cannot use Sixel; Terax has no inline graphics protocol.
 - Remote image fetching, ACP/MCP, CI gating, comment threads, and full Vim emulation are out of scope; remote URLs render as link-styled text.
+- VS Code rendered selections are block/paragraph level; source-editor commands provide exact lines. Custom sidecar paths and remote/WSL extension hosts are not supported, and the extension is not Marketplace-published.
 - The autonomous `loop.sh`/`plan.sh`/`qa.sh` scripts require a `claude` CLI on PATH; `init.sh`, `gate.sh`, and `report.sh` do not.
 
 ## 14. Sources

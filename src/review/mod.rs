@@ -228,7 +228,23 @@ impl ReviewStore {
             path: path.to_path_buf(),
             source,
         })?;
-        let store: Self = serde_json::from_str(&raw).map_err(|source| ReviewError::Json {
+        let value: serde_json::Value =
+            serde_json::from_str(&raw).map_err(|source| ReviewError::Json {
+                path: path.to_path_buf(),
+                source,
+            })?;
+        // Probe the version before deserializing the full payload so a newer
+        // sidecar is rejected instead of being mistaken for corrupt JSON and
+        // backed up.
+        if let Some(found) = value.get("version").and_then(serde_json::Value::as_u64)
+            && found != u64::from(SIDECAR_VERSION)
+        {
+            return Err(ReviewError::UnsupportedVersion {
+                found: found.min(u64::from(u32::MAX)) as u32,
+                supported: SIDECAR_VERSION,
+            });
+        }
+        let store: Self = serde_json::from_value(value).map_err(|source| ReviewError::Json {
             path: path.to_path_buf(),
             source,
         })?;
@@ -335,6 +351,68 @@ impl ReviewStore {
         self.add_item(ItemKind::Suggestion, anchor, body.into(), Some(suggestion))
     }
 
+    pub fn update_comment(&mut self, id: &str, body: impl Into<String>) -> Result<(), ReviewError> {
+        let body = body.into();
+        if body.trim().is_empty() {
+            return Err(ReviewError::InvalidOperation(
+                "comment body is empty".to_string(),
+            ));
+        }
+        let item = self
+            .item_mut(id)
+            .ok_or_else(|| ReviewError::ItemNotFound(id.to_string()))?;
+        if item.kind != ItemKind::Comment {
+            return Err(ReviewError::InvalidOperation(format!(
+                "{id} is not a comment"
+            )));
+        }
+        item.body = body;
+        item.updated_at = now();
+        Ok(())
+    }
+
+    pub fn update_suggestion(
+        &mut self,
+        id: &str,
+        body: Option<String>,
+        replacement: Option<String>,
+    ) -> Result<(), ReviewError> {
+        if body.is_none() && replacement.is_none() {
+            return Err(ReviewError::InvalidOperation(
+                "no suggestion change requested".to_string(),
+            ));
+        }
+        let item = self
+            .item_mut(id)
+            .ok_or_else(|| ReviewError::ItemNotFound(id.to_string()))?;
+        if item.kind != ItemKind::Suggestion {
+            return Err(ReviewError::InvalidOperation(format!(
+                "{id} is not a suggestion"
+            )));
+        }
+        if let Some(replacement) = replacement {
+            if replacement.trim().is_empty() {
+                return Err(ReviewError::InvalidOperation(
+                    "suggestion replacement is empty".to_string(),
+                ));
+            }
+            let suggestion = item.suggestion.as_mut().ok_or_else(|| {
+                ReviewError::InvalidOperation(format!("{id} has no suggestion payload"))
+            })?;
+            if replacement == suggestion.original {
+                return Err(ReviewError::InvalidOperation(
+                    "suggestion replacement is unchanged".to_string(),
+                ));
+            }
+            suggestion.replacement = replacement;
+        }
+        if let Some(body) = body {
+            item.body = body;
+        }
+        item.updated_at = now();
+        Ok(())
+    }
+
     fn add_item(
         &mut self,
         kind: ItemKind,
@@ -429,6 +507,7 @@ impl ReviewStore {
 
     pub fn reattach(&mut self, id: &str, anchor: Anchor) -> Result<(), ReviewError> {
         let round = self.round;
+        let at = now();
         let new_original = anchor.quote.clone();
         let item = self
             .item_mut(id)
@@ -441,13 +520,13 @@ impl ReviewStore {
             suggestion.original = new_original;
         }
         item.status = ItemStatus::Open;
-        item.updated_at = now();
+        item.updated_at = at.clone();
         item.history.push(AnchorEvent {
             round,
             method: "reattached".to_string(),
             old_start,
             new_start: item.anchor.source_start,
-            at: now(),
+            at,
         });
         Ok(())
     }
@@ -505,6 +584,17 @@ impl ReviewStore {
             hash: self.doc_hash.clone(),
             at: now(),
         });
+    }
+
+    /// Apply the signoff policy shared by the TUI and the editor bridge.
+    pub fn signoff(&mut self) -> SignoffKind {
+        if self.has_feedback() {
+            self.signoff_feedback();
+            SignoffKind::Feedback
+        } else {
+            self.approve();
+            SignoffKind::Approved
+        }
     }
 
     pub fn start_round_if_changed(&mut self, document: &Document) -> ReanchorReport {
@@ -626,24 +716,23 @@ pub fn item_number(id: &str) -> u64 {
     id.trim_start_matches('c').parse().unwrap_or(0)
 }
 
-fn backup_path(path: &Path) -> PathBuf {
-    let stamp = std::time::SystemTime::now()
+fn unique_stamp() -> u128 {
+    std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    PathBuf::from(format!("{}.bak.{}", path.display(), stamp))
+        .unwrap_or(0)
+}
+
+fn backup_path(path: &Path) -> PathBuf {
+    PathBuf::from(format!("{}.bak.{}", path.display(), unique_stamp()))
 }
 
 fn temp_path(path: &Path) -> PathBuf {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
     PathBuf::from(format!(
         "{}.tmp.{}.{}",
         path.display(),
         std::process::id(),
-        stamp
+        unique_stamp()
     ))
 }
 
@@ -886,6 +975,8 @@ pub enum ReviewError {
     ItemNotFound(String),
     #[error("stale item cannot be reopened; reattach it first: {0}")]
     StaleItem(String),
+    #[error("invalid review operation: {0}")]
+    InvalidOperation(String),
     #[error("the document is empty")]
     EmptyDocument,
     #[error("the selected range has no reviewable text")]
@@ -1132,6 +1223,84 @@ mod tests {
         ));
         assert!(ReviewStore::load_or_recover(&path, "spec.md", "hash").is_err());
         assert!(path.exists());
+    }
+
+    #[test]
+    fn unsupported_v2_shape_is_rejected_without_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("spec.md.review.json");
+        std::fs::write(
+            &path,
+            r#"{"version":2,"file":7,"items":"unknown","future":true}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            ReviewStore::load(&path),
+            Err(ReviewError::UnsupportedVersion { found: 2, .. })
+        ));
+        assert!(ReviewStore::load_or_recover(&path, "spec.md", "hash").is_err());
+        assert!(path.exists());
+        let backups = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".bak."))
+            .count();
+        assert_eq!(backups, 0);
+    }
+
+    #[test]
+    fn update_methods_validate_and_refresh_timestamps() {
+        let document = doc("# A\n\nHello world.\n");
+        let mut store = ReviewStore::new("spec.md", document.hash.clone());
+        let comment = store.add_comment(anchor_for(&document, "Hello world."), "old");
+        let before = store.item(&comment).unwrap().updated_at.clone();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        store.update_comment(&comment, "new").unwrap();
+        assert_eq!(store.item(&comment).unwrap().body, "new");
+        assert!(store.item(&comment).unwrap().updated_at >= before);
+        assert!(store.update_comment(&comment, "   ").is_err());
+
+        let suggestion = store.add_suggestion(
+            anchor_for(&document, "Hello world."),
+            "",
+            "Hello world.",
+            "Hi.",
+        );
+        store
+            .update_suggestion(
+                &suggestion,
+                Some("note".to_string()),
+                Some("Hello there.".into()),
+            )
+            .unwrap();
+        let item = store.item(&suggestion).unwrap();
+        assert_eq!(item.body, "note");
+        assert_eq!(
+            item.suggestion.as_ref().unwrap().replacement,
+            "Hello there."
+        );
+        assert!(
+            store
+                .update_suggestion(&suggestion, None, Some("Hello world.".into()))
+                .is_err()
+        );
+        assert!(
+            store
+                .update_suggestion(&suggestion, None, Some("  ".into()))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn signoff_policy_sends_feedback_then_approves() {
+        let document = doc("# A\n\nHello world.\n");
+        let mut store = ReviewStore::new("spec.md", document.hash.clone());
+        let id = store.add_comment(anchor_for(&document, "Hello world."), "note");
+        assert_eq!(store.signoff(), SignoffKind::Feedback);
+        assert!(store.approval.is_none());
+        store.resolve(&id).unwrap();
+        assert_eq!(store.signoff(), SignoffKind::Approved);
+        assert!(store.is_approved());
     }
 
     #[test]

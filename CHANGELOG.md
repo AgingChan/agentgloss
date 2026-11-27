@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.2.0 — 2026-11-28
+
+### Added
+
+- Hidden, versioned JSON bridge (`agentgloss bridge state|apply`) for editor integrations: lock-free state reads, per-operation mutations, line-range selections, item CRUD, and shared signoff policy.
+- VS Code extension (`vscode/`) with a rendered review webview, bundled Mermaid v11, block/paragraph comment and suggestion selection, inline threads, stale reattachment, signoff, and source-editor exact-selection commands.
+
+### Changed
+
+- Media hashing now runs on worker threads; cache keys include the target cell size and terminal pixel size, and stale worker results are discarded after a layout change.
+- Mermaid Auto mode falls back to `mmdc` after any Rust render, raster, or encode failure.
+- Standard-mode heading navigation uses `[`/`]` (Ctrl+[ arrives as Esc); `Ctrl+S` saves outside editors; the help overlay fits and scrolls.
+- SIGHUP/SIGTERM and panics restore the terminal and autosave the review.
+- Export keeps its exclusive lock as handshake policy; the bridge takes the lock per mutation and `state` is lock-free.
+
+### Fixed
+
+- `resolve` validates the Markdown file and reconciles before resolving.
+- Unsupported sidecar versions are rejected without backup, even with incompatible newer fields.
+- Empty table cells carry an inline with the cell source range.
+- Multi-paragraph list and footnote content renders as separate, indented blocks; adjacent items no longer get blank separators; wrapped list lines use a hanging indent.
+- Control characters are sanitized in rendered/source/export output without changing source bytes or anchors.
+- Media no longer covers the gutter; image suggestions are rejected; stale drafts are discarded across revisions.
+- Duplicate complete agent marker blocks collapse, and orphan markers are refused without rewriting the file.
+- Empty documents show the empty-document message.
+
 ## 0.1.1 — 2026-11-22
 
 - Media blocks now fit the document page: Mermaid diagrams and images are scaled to the page width, capped at the viewport height, sized by aspect ratio instead of fixed rows, and centered. Partially scrolled images use sliced protocols.

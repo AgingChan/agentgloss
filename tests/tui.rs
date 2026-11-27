@@ -52,6 +52,49 @@ fn draw(app: &mut App, width: u16, height: u16) -> String {
     out
 }
 
+/// Images are hashed on a worker thread, so the first frame returns a
+/// metadata-only key. Pump frames until the content-addressed key has media.
+fn ready_media(app: &mut App, width: u16, height: u16) -> String {
+    let start = std::time::Instant::now();
+    loop {
+        draw(app, width, height);
+        let key = app.media_keys.values().next().cloned();
+        if let Some(key) = key {
+            let slice = std::time::Instant::now();
+            while slice.elapsed() < std::time::Duration::from_millis(250) {
+                app.media.poll();
+                if app.media.get(&key).is_some() || app.media.error(&key).is_some() {
+                    return key;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        }
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(10),
+            "media timeout"
+        );
+    }
+}
+
+#[test]
+fn empty_document_message_is_reachable() {
+    let (mut app, _dir) = fixture("");
+    let text = draw(&mut app, 80, 24);
+    assert!(text.contains("Empty document"), "{text}");
+}
+
+#[test]
+fn help_overlay_fits_and_scrolls_at_80x24() {
+    let (mut app, _dir) = fixture("# A\n\none\n");
+    app.help = true;
+    let text = draw(&mut app, 80, 24);
+    assert!(text.contains("Help"));
+    assert!(text.contains("Navigation"));
+    app.help_scroll = usize::MAX / 2;
+    let text = draw(&mut app, 80, 24);
+    assert!(text.contains("closes help"), "{text}");
+}
+
 #[test]
 fn renders_at_80x24_and_wide() {
     let (mut app, _dir) = fixture("# Plan\n\nHello world.\n\nSecond paragraph.\n");
@@ -158,15 +201,8 @@ fn image_media_is_prepared_and_cached() {
     let document = Document::load(&path).unwrap();
     let store = ReviewStore::new(path.display().to_string(), document.hash.clone());
     let mut app = App::new(document, store, sidecar_path(&path), options(dir.path()));
-    draw(&mut app, 80, 24);
-    assert!(!app.media_keys.is_empty());
-    let key = app.media_keys.values().next().unwrap().clone();
-    assert!(
-        app.media.wait_for(&key, std::time::Duration::from_secs(10)),
-        "{:?}",
-        app.media.error(&key)
-    );
-    assert!(app.media.get(&key).is_some());
+    let key = ready_media(&mut app, 80, 24);
+    assert!(app.media.get(&key).is_some(), "{:?}", app.media.error(&key));
 }
 
 #[test]
@@ -180,13 +216,8 @@ fn loaded_image_rows_do_not_contain_the_media_label() {
     let document = Document::load(&path).unwrap();
     let store = ReviewStore::new(path.display().to_string(), document.hash.clone());
     let mut app = App::new(document, store, sidecar_path(&path), options(dir.path()));
-    draw(&mut app, 120, 40);
-    let key = app.media_keys.values().next().unwrap().clone();
-    assert!(
-        app.media.wait_for(&key, std::time::Duration::from_secs(10)),
-        "{:?}",
-        app.media.error(&key)
-    );
+    let key = ready_media(&mut app, 120, 40);
+    assert!(app.media.get(&key).is_some(), "{:?}", app.media.error(&key));
     draw(&mut app, 120, 40);
 
     let layout = app.layout.clone().unwrap();
@@ -253,8 +284,7 @@ fn partially_visible_media_keeps_a_stable_cache_key() {
     let document = Document::load(&path).unwrap();
     let store = ReviewStore::new(path.display().to_string(), document.hash.clone());
     let mut app = App::new(document, store, sidecar_path(&path), options(dir.path()));
-    draw(&mut app, 80, 20);
-    let first = app.media_keys.values().next().unwrap().clone();
+    let first = ready_media(&mut app, 80, 20);
     app.scroll(2);
     draw(&mut app, 80, 20);
     let second = app.media_keys.values().next().unwrap().clone();

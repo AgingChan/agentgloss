@@ -1,6 +1,8 @@
 # Table rendering in the rendered view
 
 - **Date:** 2026-11-22
+- **Status:** Implemented (aligned tables, styled header, wrapping, CJK, and a
+  narrow-width flattened fallback; empty cells carry source ranges)
 
 ## Problem
 

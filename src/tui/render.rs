@@ -46,14 +46,15 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
         app.rebuild_with_height(content_width as usize, doc_area.height as usize);
     }
     app.set_viewport(doc_area.height as usize);
-    app.prepare_media(doc_area);
+    let media_area = media_area(doc_area, gutter);
+    app.prepare_media(media_area);
 
     if app.has_visible_media(doc_area) {
         frame.render_widget(Clear, doc_area);
     }
     render_header(frame, app, header);
     render_document(frame, app, doc_area);
-    render_media(frame, app, doc_area);
+    render_media(frame, app, media_area);
     let mut interactive_outline = None;
     let mut interactive_review = None;
     if let Some(area) = outline_area {
@@ -91,7 +92,7 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     });
 
     if app.help {
-        render_help(frame, area);
+        render_help(frame, area, app.help_scroll);
     }
     if let Some(message) = app.confirm.as_ref().map(|confirm| confirm.message.clone()) {
         render_confirm(frame, area, &message);
@@ -265,6 +266,15 @@ fn inline_style(style: &InlineStyle) -> Style {
     }
 }
 
+fn media_area(doc_area: Rect, gutter: u16) -> Rect {
+    Rect::new(
+        doc_area.x + gutter,
+        doc_area.y,
+        doc_area.width.saturating_sub(gutter).max(1),
+        doc_area.height,
+    )
+}
+
 fn render_media(frame: &mut Frame<'_>, app: &App, area: Rect) {
     let start = app.scroll;
     let end = (start + area.height as usize).min(app.lines.len());
@@ -429,13 +439,14 @@ fn render_review(frame: &mut Frame<'_>, app: &mut App, area: Rect) {
             .take(24)
             .map(|ch| if ch == '\n' || ch == '\t' { ' ' } else { ch })
             .collect();
-        let text = format!(
+        let text = crate::sanitize::sanitize_terminal_text(&format!(
             "{marker} {} {} L{} {}",
             item.id,
             item.status.label(),
             line_no,
             excerpt
-        );
+        ))
+        .into_owned();
         let style = if app.focus == Focus::Review && index == app.review_cursor {
             Style::default().bg(Color::DarkGray).fg(Color::White)
         } else if item.status == ItemStatus::Stale {
@@ -451,7 +462,10 @@ fn render_review(frame: &mut Frame<'_>, app: &mut App, area: Rect) {
 }
 
 fn render_footer(frame: &mut Frame<'_>, app: &App, area: Rect) -> Vec<(Rect, FooterAction)> {
-    let status = truncate(&format!(" {}", app.status), area.width as usize);
+    let status = truncate(
+        &format!(" {}", crate::sanitize::sanitize_terminal_text(&app.status)),
+        area.width as usize,
+    );
     frame.render_widget(
         Paragraph::new(status).style(Style::default().fg(Color::Gray)),
         Rect::new(area.x, area.y, area.width, 1),
@@ -487,7 +501,7 @@ fn render_footer(frame: &mut Frame<'_>, app: &App, area: Rect) -> Vec<(Rect, Foo
         }
     }
     let hints = match app.focus {
-        Focus::Document => "Tab focus  ? help  F10/Ctrl+Enter send  q quit",
+        Focus::Document => "Tab focus  ? help  F10/Ctrl+Enter send  Ctrl+S save  q quit",
         Focus::Outline => "j/k move  Enter jump  Esc back",
         Focus::Review => {
             "j/k move  Enter jump  e edit  r reattach  x resolve  X reopen  d delete  Esc back"
@@ -504,15 +518,23 @@ fn render_footer(frame: &mut Frame<'_>, app: &App, area: Rect) -> Vec<(Rect, Foo
     buttons
 }
 
-fn render_help(frame: &mut Frame<'_>, area: Rect) {
-    let popup = centered(area, 76, 80);
+fn render_help(frame: &mut Frame<'_>, area: Rect, scroll: usize) {
+    let width = area.width.saturating_sub(2).clamp(20, 90);
+    let height = area.height.saturating_sub(2).clamp(5, 44);
+    let popup = Rect::new(
+        area.x + (area.width.saturating_sub(width)) / 2,
+        area.y + (area.height.saturating_sub(height)) / 2,
+        width,
+        height,
+    );
     frame.render_widget(Clear, popup);
     let text = vec![
         Line::from("Navigation"),
         Line::from("  j/k or arrows       move one line"),
         Line::from("  Ctrl-d / Ctrl-u     half page"),
         Line::from("  gg / G              top / bottom"),
-        Line::from("  ]] / [[             next / previous heading"),
+        Line::from("  ]] / [[ (vim)       next / previous heading"),
+        Line::from("  [ / ] (standard)    next / previous heading"),
         Line::from("  } / {               next / previous paragraph"),
         Line::from("  / or Ctrl-f         search; n/N next/previous"),
         Line::from(""),
@@ -528,17 +550,22 @@ fn render_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("  r                   reattach a stale item to the current selection"),
         Line::from("  d / Delete          delete selected item"),
         Line::from("  F10/Ctrl+Enter      send review / approve"),
+        Line::from("  Ctrl+S              save review state"),
         Line::from("  Tab                 cycle document, outline, review"),
         Line::from("  F2 / F3             toggle input mode / rendered-source"),
         Line::from("  q                   quit (autosaves)"),
         Line::from(""),
         Line::from("Mouse: click to place cursor, drag to select, wheel to scroll."),
-        Line::from("Press Esc, ? or q to close this help."),
+        Line::from("Scroll: j/k, PgUp/PgDn, Home/End · Esc, ? or q closes help."),
     ];
+    let inner_height = popup.height.saturating_sub(2) as usize;
+    let max_scroll = text.len().saturating_sub(inner_height);
+    let scroll = scroll.min(max_scroll) as u16;
     frame.render_widget(
         Paragraph::new(Text::from(text))
             .block(Block::default().borders(Borders::ALL).title("Help"))
-            .wrap(Wrap { trim: false }),
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0)),
         popup,
     );
 }
@@ -663,4 +690,21 @@ fn panel_inner(area: Rect) -> Rect {
 
 fn truncate(text: &str, width: usize) -> String {
     text.chars().take(width).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn media_area_starts_after_the_gutter() {
+        let area = Rect::new(10, 5, 80, 20);
+        let media = media_area(area, 2);
+        assert_eq!(media.x, 12);
+        assert_eq!(media.y, 5);
+        assert_eq!(media.width, 78);
+        let numbered = media_area(area, 8);
+        assert_eq!(numbered.x, 18);
+        assert_eq!(numbered.width, 72);
+    }
 }

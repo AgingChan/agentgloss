@@ -25,6 +25,27 @@ jobs:
       - run: sh tests/docs.sh
       - run: sh tests/workflows.sh
 
+  vscode:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentgloss-vscode
+          path: vscode/*.vsix
+
   verify-tag:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -79,21 +100,23 @@ jobs:
           path: ${{ matrix.archive }}
 
   release:
-    needs: [test, build, verify-tag]
+    needs: [test, build, verify-tag, vscode]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check tag matches Cargo.toml
+      - name: Check tag matches Cargo.toml and package.json
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
           test "v$version" = "$GITHUB_REF_NAME"
+          vscode_version=$(node -p "require('./vscode/package.json').version")
+          test "$vscode_version" = "$version"
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
       - name: Checksums
-        run: cd dist && sha256sum *.tar.gz > SHA256SUMS
+        run: cd dist && sha256sum *.tar.gz *.vsix > SHA256SUMS
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

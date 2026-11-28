@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Default the `agentgloss.path` setting to `agloss`, the new CLI command. The
+  setting key is unchanged; `agentgloss` remains a compatibility alias.
+
 ## 1.0.2 — 2026-11-28
 
 - Renamed the extension display name to "Agent Gloss". The command palette

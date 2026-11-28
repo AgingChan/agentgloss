@@ -42,7 +42,7 @@ describe("bridge envelope parsing", () => {
 
   it("reports a missing binary", async () => {
     await expect(
-      runBridge("/definitely/missing/agentgloss", ["bridge", "state", "x.md"]),
+      runBridge("/definitely/missing/agloss", ["bridge", "state", "x.md"]),
     ).rejects.toMatchObject({
       code: "not_found",
     } satisfies Partial<BridgeError>);

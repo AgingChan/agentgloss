@@ -104,9 +104,9 @@
       "properties": {
         "agentgloss.path": {
           "type": "string",
-          "default": "agentgloss",
+          "default": "agloss",
           "scope": "machine",
-          "description": "Path to the agentgloss binary (or a command on PATH)."
+          "description": "Path to the agloss binary (or a command on PATH)."
         }
       }
     }

@@ -5,26 +5,27 @@
 # Agent Gloss for VS Code
 
 Review long Markdown specs and agent-generated plans inside VS Code with the
-same `*.review.json` sidecar as the `agentgloss` terminal reviewer. The webview
+same `*.review.json` sidecar as the AgentGloss terminal reviewer. The webview
 renders Markdown and Mermaid diagrams (bundled Mermaid v11), and every comment
-or suggested edit is stored by the Rust bridge so `agentgloss request`,
+or suggested edit is stored by the Rust bridge so `agloss request`,
 `export`, `wait`, and `resolve` keep working unchanged.
 
 ## Requirements
 
 - VS Code 1.90 or newer.
-- The `agentgloss` binary with the hidden `bridge` command. Build it from this
-  repository (`cargo build --release`) or install a release that includes it.
+- The `agloss` binary with the hidden `bridge` command. The `agentgloss` alias
+  also works. Build it from this repository (`cargo build --release`) or
+  install a release that includes it.
 - A trusted workspace.
 
 ## Setup
 
-Put `agentgloss` on `PATH`, or set the machine-scoped `agentgloss.path` setting
-to the binary:
+Put `agloss` on `PATH`, or set the machine-scoped `agentgloss.path` setting
+(the key is unchanged for compatibility) to the binary:
 
 ```json
 {
-  "agentgloss.path": "/Users/you/.local/bin/agentgloss"
+  "agentgloss.path": "/Users/you/.local/bin/agloss"
 }
 ```
 
@@ -33,7 +34,7 @@ with `execFile` (no shell).
 
 ## Use
 
-1. The agent runs `agentgloss request spec.md` (or open any Markdown file).
+1. The agent runs `agloss request spec.md` (or open any Markdown file).
 2. Run **Agent Gloss: Open Review** from the Command Palette, the AgentGloss
    annotation button in the editor title bar, the Explorer file context menu,
    or the editor-tab context menu.
@@ -42,7 +43,7 @@ with `execFile` (no shell).
    items.
 5. Choose **Sign off**. With open or stale items the review is sent as
    feedback; otherwise the revision is approved.
-6. The agent runs `agentgloss export spec.md` or `agentgloss wait spec.md`.
+6. The agent runs `agloss export spec.md` or `agloss wait spec.md`.
 
 The webview reads the on-disk document. If the editor has unsaved changes it
 shows a banner and asks you to save before editing the review.
@@ -51,7 +52,7 @@ shows a banner and asks you to save before editing the review.
 
 Rendered selections are block/paragraph level. For line-exact selections
 (including inside tables and code fences), select text in the normal Markdown
-editor and run **agentgloss: Comment on Selection** or **agentgloss: Suggest
+editor and run **Agent Gloss: Comment on Selection** or **Agent Gloss: Suggest
 Edit for Selection** from the context menu. Source-editor suggestions accept a
 single-line replacement; use the rendered webview for multiline replacements.
 
@@ -59,7 +60,7 @@ single-line replacement; use the rendered webview for multiline replacements.
 
 - **TUI and webview are interchangeable.** Both write the sidecar; the open
   panel refreshes when another front end changes it.
-- While a terminal `agentgloss review` session holds the sidecar lock, the
+- While a terminal `agloss review` session holds the sidecar lock, the
   webview stays readable but cannot mutate.
 - Local images are shown when they live inside the document directory or a
   workspace folder; remote images render as links.
@@ -79,7 +80,7 @@ npm run package   # VSIX in this directory
 Install the VSIX with:
 
 ```sh
-code --install-extension agentgloss-1.0.2.vsix --force
+code --install-extension agentgloss-<version>.vsix --force
 ```
 
 Or install `InnopiaPteLtd.agentgloss` from the Visual Studio Marketplace.

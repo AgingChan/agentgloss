@@ -155,7 +155,7 @@ export class ReviewPanel {
   private binary(): string {
     return vscode.workspace
       .getConfiguration("agentgloss", this.uri)
-      .get<string>("path", "agentgloss");
+      .get<string>("path", "agloss");
   }
 
   private enqueue(task: () => Promise<void>): Promise<void> {

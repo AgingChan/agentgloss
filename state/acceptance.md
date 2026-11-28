@@ -5,9 +5,9 @@ Evidence was refreshed on 2026-11-28 on macOS arm64 (Rust 1.100, host target
 the editor bridge, and the VS Code extension without changing the sidecar
 schema.
 
-Counts: 128 library, 16 CLI integration, 35 TUI integration, 11 bridge
-integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
-19 VS Code extension tests (210 automated tests total).
+Counts: 128 library, 17 CLI integration, 35 TUI integration, 11 bridge
+integration, and 1 performance test (192 Rust; two ignored diagnostics), plus
+19 VS Code extension tests (211 automated tests total).
 
 | Feature | Evidence |
 | --- | --- |

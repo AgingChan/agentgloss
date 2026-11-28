@@ -3,20 +3,20 @@
 ## Purpose
 
 The bridge lets an external editor render and mutate a review without
-reimplementing agentgloss semantics. Rust remains the single owner of parsing,
+reimplementing AgentGloss semantics. Rust remains the single owner of parsing,
 anchors, re-anchoring, rounds, approval, locking, and persistence. The sidecar
 schema stays `version = 1`; the bridge is additive and does not change any
 existing command or output.
 
-The bridge is exposed under a hidden `agentgloss bridge` subcommand. It is a
+The bridge is exposed under a hidden `agloss bridge` subcommand. It is a
 machine contract, not part of the interactive CLI; it is documented here and
 tested like any other feature.
 
 ## Commands
 
 ```text
-agentgloss bridge state <FILE> [--sidecar <PATH>] [--no-source]
-agentgloss bridge apply <FILE> [--sidecar <PATH>]   # request JSON on stdin
+agloss bridge state <FILE> [--sidecar <PATH>] [--no-source]
+agloss bridge apply <FILE> [--sidecar <PATH>]   # request JSON on stdin
 ```
 
 Both print exactly one compact JSON object plus a newline to stdout;
@@ -71,7 +71,7 @@ Success envelope:
   exclude their fences, matching `Block.source`. `kind` is the snake_case block
   kind (`heading`, `paragraph`, `list_item`, `code_block`, `table`,
   `blockquote`, `rule`, `image`, `mermaid`, `html`, `footnote`).
-- `status` follows `agentgloss status`: `invalidated` when an approval exists
+- `status` follows `agloss status`: `invalidated` when an approval exists
   but is invalid, else `changed` when the document hash differs, else
   `approved` / `feedback` / `pending`.
 - `state` does **not** re-anchor. `doc_changed: true` tells the client to run

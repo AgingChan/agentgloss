@@ -97,7 +97,7 @@ pub fn run(args: &BridgeArgs) -> i32 {
             0
         }
         Err(error) => {
-            eprintln!("agentgloss bridge: {error}");
+            eprintln!("agloss bridge: {error}");
             print_json(&error.envelope());
             2
         }
@@ -107,7 +107,7 @@ pub fn run(args: &BridgeArgs) -> i32 {
 fn print_json(value: &Value) {
     match serde_json::to_string(value) {
         Ok(text) => println!("{text}"),
-        Err(error) => eprintln!("agentgloss bridge: cannot serialize response: {error}"),
+        Err(error) => eprintln!("agloss bridge: cannot serialize response: {error}"),
     }
 }
 

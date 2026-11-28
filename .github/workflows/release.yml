@@ -79,19 +79,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - run: cargo build --release --locked --target ${{ matrix.target }} --bin agloss
       - name: Strip and sign
         run: |
           if [ "${{ runner.os }}" = "macOS" ]; then
-            strip -x "target/${{ matrix.target }}/release/agentgloss"
-            codesign --force --sign - "target/${{ matrix.target }}/release/agentgloss"
+            strip -x "target/${{ matrix.target }}/release/agloss"
+            codesign --force --sign - "target/${{ matrix.target }}/release/agloss"
           else
-            strip "target/${{ matrix.target }}/release/agentgloss"
+            strip "target/${{ matrix.target }}/release/agloss"
           fi
       - name: Package
         run: |
           mkdir -p dist
-          cp "target/${{ matrix.target }}/release/agentgloss" dist/
+          cp "target/${{ matrix.target }}/release/agloss" dist/
           cp LICENSE README.md dist/
           tar -czf "${{ matrix.archive }}" -C dist .
       - uses: actions/upload-artifact@v4

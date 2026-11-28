@@ -3,17 +3,17 @@
 ## Commands
 
 ```
-agentgloss review <file> [--keys vim|standard] [--no-mouse]
+agloss review <file> [--keys vim|standard] [--no-mouse]
                        [--protocol auto|kitty|iterm2|sixel|halfblocks]
                        [--theme auto|dark|light] [--sidecar <path>]
                        [--tmux] [--detach]
-agentgloss request <file>
-agentgloss wait <file> [--timeout <secs>] [--interval <millis>]
-agentgloss export <file> [--format prompt|json] [--all]
-agentgloss status <file> [--json]
-agentgloss resolve <file> <id>...
-agentgloss install <claude|codex|gemini|generic> [--dir <dir>]
-agentgloss __tui <file> [review options]   # hidden tmux entry point
+agloss request <file>
+agloss wait <file> [--timeout <secs>] [--interval <millis>]
+agloss export <file> [--format prompt|json] [--all]
+agloss status <file> [--json]
+agloss resolve <file> <id>...
+agloss install <claude|codex|gemini|generic> [--dir <dir>]
+agloss __tui <file> [review options]       # hidden tmux entry point
 ```
 
 ## Exit codes

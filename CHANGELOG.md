@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The CLI command is now `agloss`; `agentgloss` remains installed as a compatibility alias. Agent recipes, export hints, tmux messages, and the VS Code default binary use `agloss`. The crate/package name, config directory, sidecar, and agent markers are unchanged.
+
 ## 1.0.2 — 2026-11-28
 
 ### Changed

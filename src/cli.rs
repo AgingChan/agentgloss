@@ -22,7 +22,7 @@ pub const EXIT_TUI_ABORTED: i32 = 22;
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "agentgloss",
+    name = "agloss",
     version,
     about = "Terminal reviewer for long Markdown specs"
 )]
@@ -142,7 +142,7 @@ pub fn run() -> i32 {
     match dispatch(cli) {
         Ok(code) => code,
         Err(error) => {
-            eprintln!("agentgloss: {error}");
+            eprintln!("agloss: {error}");
             EXIT_ERROR
         }
     }
@@ -206,7 +206,7 @@ fn run_review(args: &ReviewArgs, internal: bool) -> anyhow::Result<i32> {
     )?;
     if let Some(backup) = &outcome.backup_path {
         eprintln!(
-            "agentgloss: corrupt review state backed up to {}",
+            "agloss: corrupt review state backed up to {}",
             backup.display()
         );
     }
@@ -264,7 +264,7 @@ fn run_request(file: &PathBuf, sidecar_override: Option<&PathBuf>) -> anyhow::Re
     )?;
     if let Some(backup) = &outcome.backup_path {
         eprintln!(
-            "agentgloss: corrupt review state backed up to {}",
+            "agloss: corrupt review state backed up to {}",
             backup.display()
         );
     }
@@ -277,9 +277,9 @@ fn run_request(file: &PathBuf, sidecar_override: Option<&PathBuf>) -> anyhow::Re
         .map(|path| format!(" --sidecar {}", agent::display_path(path)))
         .unwrap_or_default();
     let file_display = agent::display_path(file);
-    println!("Human: agentgloss review {file_display}{sidecar_flag}");
+    println!("Human: agloss review {file_display}{sidecar_flag}");
     println!(
-        "Agent: agentgloss export {file_display}{sidecar_flag}   (or agentgloss wait {file_display}{sidecar_flag})"
+        "Agent: agloss export {file_display}{sidecar_flag}   (or agloss wait {file_display}{sidecar_flag})"
     );
     Ok(EXIT_OK)
 }
@@ -303,7 +303,7 @@ fn run_wait(args: &WaitArgs) -> anyhow::Result<i32> {
             }
         }
         if args.timeout > 0 && start.elapsed() >= timeout {
-            eprintln!("agentgloss: review wait timed out");
+            eprintln!("agloss: review wait timed out");
             return Ok(EXIT_TIMEOUT);
         }
         std::thread::sleep(interval);

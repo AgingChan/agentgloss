@@ -7,15 +7,15 @@
 
 A terminal reviewer for long Markdown specs and plans produced by coding agents, with a matching VS Code review view.
 
-`agentgloss` renders Markdown (including local images and Mermaid diagrams), lets you attach comments and suggested edits to exact source lines or paragraphs, and returns a numbered, paste-ready review to Claude Code, Codex CLI, Gemini CLI, OpenCode, Aider, or any other agent.
+AgentGloss renders Markdown (including local images and Mermaid diagrams), lets you attach comments and suggested edits to exact source lines or paragraphs, and returns a numbered, paste-ready review to Claude Code, Codex CLI, Gemini CLI, OpenCode, Aider, or any other agent.
 
-> Formerly mdreview. The crate and binary are now agentgloss.
+> Formerly mdreview. The crate and package remain `agentgloss`; the CLI command is `agloss`, with `agentgloss` kept as a compatibility alias.
 
 ## Status
 
 MVP implemented and tested (v1.0.2):
 
-- 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, 1 performance test (191 Rust tests), plus 19 VS Code extension tests (210 total)
+- 128 library tests, 17 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, 1 performance test (192 Rust tests), plus 19 VS Code extension tests (211 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
 - PTY smoke test in tmux renders the document, Mermaid, and images; `q` quits and restores the terminal
 - Static musl binary
@@ -45,16 +45,16 @@ Prebuilt binaries are published for Linux x86_64 (static musl) and macOS Apple S
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh | sh
 ```
 
-The installer downloads the latest release, verifies its SHA-256 checksum, and installs to `${AGENTGLOSS_INSTALL_DIR:-$HOME/.local/bin}`. Pin a version or choose a directory with:
+The installer downloads the latest release, verifies its SHA-256 checksum, and installs `agloss` plus an `agentgloss` alias to `${AGENTGLOSS_INSTALL_DIR:-$HOME/.local/bin}`. Pin a version or choose a directory with:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
   | sh -s -- --version v1.0.2 --dir "$HOME/bin"
 ```
 
-Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
+Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agloss` on your `PATH`.
 
-Rust users can install from crates.io (this compiles locally and requires a Rust toolchain):
+Rust users can install from crates.io (this compiles locally and requires a Rust toolchain; it installs both `agloss` and the `agentgloss` alias):
 
 ```sh
 cargo install agentgloss
@@ -66,9 +66,9 @@ For unreleased code:
 cargo install --git https://github.com/AgingChan/agentgloss
 ```
 
-macOS binaries are ad-hoc signed. If Gatekeeper quarantines the downloaded binary, run `xattr -d com.apple.quarantine ~/.local/bin/agentgloss`.
+macOS binaries are ad-hoc signed. If Gatekeeper quarantines the downloaded binary, run `xattr -d com.apple.quarantine ~/.local/bin/agloss`.
 
-> Renaming from mdreview: the config directory is now `~/.config/agentgloss` (`~/Library/Application Support/agentgloss` on macOS); an existing `~/.config/mdreview` is not read. Old `<!-- mdreview:* -->` marker blocks are not recognized; delete the old block, then re-run `agentgloss install <agent>` to install the new recipes.
+> Renaming from mdreview: the config directory is now `~/.config/agentgloss` (`~/Library/Application Support/agentgloss` on macOS); an existing `~/.config/mdreview` is not read. Old `<!-- mdreview:* -->` marker blocks are not recognized; delete the old block, then re-run `agloss install <agent>` to install the new recipes.
 
 ## Build
 
@@ -95,13 +95,13 @@ The project targets a static `x86_64-unknown-linux-musl` binary. On this machine
 ```sh
 source scripts/env.sh
 cargo build --release
-./target/x86_64-unknown-linux-musl/release/agentgloss --version
+./target/x86_64-unknown-linux-musl/release/agloss --version
 ```
 
 If you already have a working C linker, you can remove `.cargo/config.toml` and build normally. The generated binary is static:
 
 ```sh
-file target/x86_64-unknown-linux-musl/release/agentgloss
+file target/x86_64-unknown-linux-musl/release/agloss
 # ELF 64-bit LSB pie executable ... static-pie linked
 ```
 
@@ -119,21 +119,21 @@ Maintainers publish from `main`:
 
 ```sh
 # Review in your terminal
-agentgloss review docs/specs/checkout.md
+agloss review docs/specs/checkout.md
 
 # If the agent needs to request a review first
-agentgloss request docs/specs/checkout.md
+agloss request docs/specs/checkout.md
 # ... the human runs:
-agentgloss review docs/specs/checkout.md
+agloss review docs/specs/checkout.md
 # ... then the agent runs:
-agentgloss export docs/specs/checkout.md
+agloss export docs/specs/checkout.md
 ```
 
 Inside tmux:
 
 ```sh
-agentgloss review docs/specs/checkout.md --tmux
-agentgloss review docs/specs/checkout.md --detach   # agent polls with wait
+agloss review docs/specs/checkout.md --tmux
+agloss review docs/specs/checkout.md --detach   # agent polls with wait
 ```
 
 ## Commands
@@ -166,13 +166,13 @@ npm ci
 npm run check
 npm test
 npm run package
-code --install-extension agentgloss-1.0.2.vsix --force
+code --install-extension agentgloss-<version>.vsix --force
 ```
 
-The v1.0.2 GitHub release also ships `agentgloss-1.0.2.vsix` with its checksum
-entry in `SHA256SUMS`. Set `agentgloss.path` (machine scope) when the binary is
-not on `PATH`. The extension requires a trusted workspace and spawns the binary
-without a shell.
+The GitHub release also ships the VSIX with its checksum entry in
+`SHA256SUMS`. Set `agentgloss.path` (machine scope) to the `agloss` binary when
+it is not on `PATH`. The extension requires a trusted workspace and spawns the
+binary without a shell.
 
 The extension is published to the Visual Studio Marketplace as
 [`InnopiaPteLtd.agentgloss`](https://marketplace.visualstudio.com/items?itemName=InnopiaPteLtd.agentgloss),
@@ -193,7 +193,7 @@ Commands and entry points:
 - **Agent Gloss: Open Review** — rendered review panel beside the Markdown file.
   Also available as the AgentGloss annotation button in the editor title bar,
   in the Explorer file context menu, and in the editor-tab context menu.
-- **agentgloss: Comment on Selection** / **Suggest Edit for Selection** — exact
+- **Agent Gloss: Comment on Selection** / **Suggest Edit for Selection** — exact
   line selections from the Markdown editor context menu.
 
 Rendered selections snap to annotated blocks and paragraphs; use the
@@ -204,12 +204,12 @@ and is also attached to each GitHub release as a VSIX.
 
 ## Review workflow
 
-1. The agent writes a spec and runs `agentgloss request <file>`.
-2. You run `agentgloss review <file>` (separate pane, the agent opens a tmux
+1. The agent writes a spec and runs `agloss request <file>`.
+2. You run `agloss review <file>` (separate pane, the agent opens a tmux
    popup, or you use **Agent Gloss: Open Review** in VS Code).
 3. Select text or a block, press `c` for a comment or `s` for a suggested edit, then `F10` (or `Ctrl+Enter`) to save.
 4. `F10` (or `Ctrl+Enter`) again opens signoff. A clean review is approved; otherwise the review is sent to the agent.
-5. The agent runs `agentgloss export <file>` or `agentgloss wait <file>`, addresses the numbered items, and runs `agentgloss resolve <file> <ids>`.
+5. The agent runs `agloss export <file>` or `agloss wait <file>`, addresses the numbered items, and runs `agloss resolve <file> <ids>`.
 6. Reopen the review after the revision. Open items re-anchor; stale items remain visible for reattachment.
 
 TUI suggestions are title-less; the optional suggestion note is available
@@ -218,10 +218,10 @@ through the editor bridge/webview and is included in prompt and JSON exports.
 ### Agent recipes
 
 ```sh
-agentgloss install claude    # .claude/commands/agentgloss-review.md
-agentgloss install codex     # AGENTS.md marker block
-agentgloss install gemini    # GEMINI.md marker block
-agentgloss install generic   # agentgloss-agent.md
+agloss install claude    # .claude/commands/agentgloss-review.md
+agloss install codex     # AGENTS.md marker block
+agloss install gemini    # GEMINI.md marker block
+agloss install generic   # agentgloss-agent.md
 ```
 
 Codex and Gemini installs update only the marker block and preserve the rest of `AGENTS.md`/`GEMINI.md`. Claude and generic installs replace their dedicated recipe files. Re-running any install is idempotent.
@@ -337,7 +337,7 @@ Manual PTY smoke test:
 tmp=$(mktemp -d)
 cp tests/fixtures/spec.md tests/fixtures/red.png "$tmp"/
 tmux new-session -d -s agentgloss -x 100 -y 30 \
-  "cd $tmp && /path/to/agentgloss review spec.md"
+  "cd $tmp && /path/to/agloss review spec.md"
 sleep 2
 tmux send-keys -t agentgloss q
 ```

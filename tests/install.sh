@@ -15,31 +15,50 @@ sha256() {
 }
 
 make_release() {
-    version=$1
-    dir="$tmp/releases/$2"
+    dir="$tmp/releases/$1"
     mkdir -p "$dir"
-    printf '#!/bin/sh\necho agentgloss-test\n' > "$tmp/agentgloss"
+    printf '#!/bin/sh\necho agloss-test\n' > "$tmp/agloss"
+    chmod +x "$tmp/agloss"
+    tar -czf "$dir/$asset" -C "$tmp" agloss
+    (cd "$dir" && sha256 "$asset" > SHA256SUMS)
+}
+
+make_legacy_release() {
+    dir="$tmp/releases/$1"
+    mkdir -p "$dir"
+    printf '#!/bin/sh\necho agentgloss-legacy\n' > "$tmp/agentgloss"
     chmod +x "$tmp/agentgloss"
     tar -czf "$dir/$asset" -C "$tmp" agentgloss
     (cd "$dir" && sha256 "$asset" > SHA256SUMS)
 }
 
-make_release v0.0.0-test "latest/download"
-make_release v0.0.0-test "download/v0.0.0-test"
+make_release "latest/download"
+make_release "download/v0.0.0-test"
 
 AGENTGLOSS_RELEASE_BASE="file://$tmp/releases" sh "$root/install.sh" --version v0.0.0-test --dir "$tmp/pinned"
-test -x "$tmp/pinned/agentgloss"
-test "$("$tmp/pinned/agentgloss")" = "agentgloss-test"
+test -x "$tmp/pinned/agloss"
+test -L "$tmp/pinned/agentgloss"
+test "$("$tmp/pinned/agloss")" = "agloss-test"
+test "$("$tmp/pinned/agentgloss")" = "agloss-test"
 
 AGENTGLOSS_RELEASE_BASE="file://$tmp/releases" sh "$root/install.sh" --dir "$tmp/latest"
-test -x "$tmp/latest/agentgloss"
+test -x "$tmp/latest/agloss"
+test -L "$tmp/latest/agentgloss"
 
-make_release v0.0.0-bad "download/v0.0.0-bad"
+make_legacy_release "download/v0.0.0-legacy"
+AGENTGLOSS_RELEASE_BASE="file://$tmp/releases" sh "$root/install.sh" --version v0.0.0-legacy --dir "$tmp/legacy"
+test -x "$tmp/legacy/agentgloss"
+test -L "$tmp/legacy/agloss"
+test "$("$tmp/legacy/agentgloss")" = "agentgloss-legacy"
+test "$("$tmp/legacy/agloss")" = "agentgloss-legacy"
+
+make_release "download/v0.0.0-bad"
 (cd "$tmp/releases/download/v0.0.0-bad" && printf '0000000000000000000000000000000000000000000000000000000000000000  %s\n' "$asset" > SHA256SUMS)
 if AGENTGLOSS_RELEASE_BASE="file://$tmp/releases" sh "$root/install.sh" --version v0.0.0-bad --dir "$tmp/bad"; then
     echo "expected checksum failure" >&2
     exit 1
 fi
+test ! -e "$tmp/bad/agloss"
 test ! -e "$tmp/bad/agentgloss"
 
 echo "installer tests passed"

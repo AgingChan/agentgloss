@@ -2,12 +2,12 @@
 
 ## Goals
 
-Provide the full agentgloss review loop inside VS Code:
+Provide the full AgentGloss review loop inside VS Code:
 
 - rendered Markdown with high-quality Mermaid diagrams (the main motivation);
 - select rendered text or blocks to add comments and suggested edits;
 - edit, delete, resolve/reopen, reattach stale items, and sign off;
-- write the same `*.review.json` sidecar so `agentgloss request`, `export`,
+- write the same `*.review.json` sidecar so `agloss request`, `export`,
   `wait`, and `resolve` work unchanged.
 
 The extension is a renderer plus a thin client over the hidden bridge
@@ -46,7 +46,8 @@ Commands:
 
 Settings:
 
-- `agentgloss.path` (machine scope) — binary path, default `agentgloss`.
+- `agentgloss.path` (machine scope) — binary path, default `agloss`. The
+  setting key is unchanged for compatibility.
   Spawned with `execFile` and no shell. A missing binary shows an actionable
   error with install instructions.
 

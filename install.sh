@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install agentgloss from GitHub Releases.
+# Install AgentGloss from GitHub Releases.
 set -eu
 
 version="latest"
@@ -7,7 +7,7 @@ install_dir="${AGENTGLOSS_INSTALL_DIR:-$HOME/.local/bin}"
 
 usage() {
     cat <<'EOF'
-Install agentgloss from GitHub Releases.
+Install AgentGloss from GitHub Releases.
 
 Usage: install.sh [--version <vX.Y.Z>] [--dir <path>]
 
@@ -108,14 +108,21 @@ if [ "$expected" != "$actual" ]; then
 fi
 
 tar -xzf "$tmp/$asset" -C "$tmp"
-if [ ! -f "$tmp/agentgloss" ]; then
-    echo "install.sh: archive did not contain agentgloss" >&2
+if [ -f "$tmp/agloss" ]; then
+    primary=agloss
+    alias=agentgloss
+elif [ -f "$tmp/agentgloss" ]; then
+    primary=agentgloss
+    alias=agloss
+else
+    echo "install.sh: archive did not contain agloss or agentgloss" >&2
     exit 1
 fi
 
 mkdir -p "$install_dir"
-install -m 0755 "$tmp/agentgloss" "$install_dir/agentgloss"
-echo "Installed agentgloss to $install_dir/agentgloss"
+install -m 0755 "$tmp/$primary" "$install_dir/$primary"
+ln -sf "$primary" "$install_dir/$alias"
+echo "Installed $install_dir/$primary (also available as $install_dir/$alias)"
 
 case ":$PATH:" in
     *":$install_dir:"*) ;;

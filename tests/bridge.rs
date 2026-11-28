@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
 fn bin() -> &'static str {
-    env!("CARGO_BIN_EXE_agentgloss")
+    env!("CARGO_BIN_EXE_agloss")
 }
 
 fn state(dir: &Path, args: &[&str]) -> Output {

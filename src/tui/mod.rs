@@ -54,7 +54,7 @@ pub fn run(
     if let Err(error) = result {
         // A closed terminal, a signal, or a failed draw is an aborted review,
         // not a command failure: the caller still saves the review state.
-        eprintln!("agentgloss: terminal session ended: {error}");
+        eprintln!("agloss: terminal session ended: {error}");
     }
     Ok(app.exit.unwrap_or(TuiExit::Aborted))
 }

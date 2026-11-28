@@ -43,9 +43,9 @@ Let people install agentgloss without a Rust toolchain, conda environment, or mu
 The project moves from `mdreview` to `agentgloss` before the first release. This is part of the same change:
 
 - **GitHub:** rename `AgingChan/mdreview` to `AgingChan/agentgloss` and update `origin`; GitHub redirects the old URLs.
-- **Rust:** package and binary name `agentgloss`; update CLI help/version, error prefixes, the TUI header, `Cargo.lock`, and tests that assert the name.
+- **Rust:** package name `agentgloss`; command name `agloss` with an `agentgloss` alias; update CLI help/version, error prefixes, the TUI header, `Cargo.lock`, and tests that assert the names.
 - **Docs:** README, live specs, the main design doc, CHANGELOG (note the rename), `init.sh`, and harness scripts. Historical harness task IDs (`MDREVIEW-N`) and historical `state/` QA notes stay as identifiers.
-- **Agent integration:** `agentgloss install ...`; generated `agentgloss-review.md` and `agentgloss-agent.md`; marker comments `<!-- agentgloss:start -->`; replace the local `.claude/commands/mdreview-review.md` with `agentgloss-review.md`.
+- **Agent integration:** `agloss install ...`; generated `agentgloss-review.md` and `agentgloss-agent.md`; marker comments `<!-- agentgloss:start -->`; replace the local `.claude/commands/mdreview-review.md` with `agentgloss-review.md`.
 - **Unchanged:** the sidecar path `<file>.review.json` is name-independent.
 - **New names everywhere:** install URLs, asset names, env vars (`AGENTGLOSS_INSTALL_DIR`, `AGENTGLOSS_RELEASE_BASE`), and the crates.io package are `agentgloss`.
 
@@ -66,7 +66,8 @@ Stable, unversioned asset names so `releases/latest/download/<asset>` works with
 - `agentgloss-aarch64-apple-darwin.tar.gz`
 - `SHA256SUMS`
 
-Each tarball contains `agentgloss`, `LICENSE`, and `README.md` at its root.
+Each tarball contains `agloss`, `LICENSE`, and `README.md` at its root. The
+installer also creates an `agentgloss` alias.
 
 ### Release workflow (`.github/workflows/release.yml`)
 
@@ -88,7 +89,7 @@ POSIX `sh`, `set -eu`, no dependencies beyond `curl`, `tar`, and a SHA-256 tool.
 
 - Flags: `--version <vX.Y.Z>` (default: latest), `--dir <path>` (default: `${AGENTGLOSS_INSTALL_DIR:-$HOME/.local/bin}`), `--help`.
 - Detect `uname -s`/`uname -m`; map Linux x86_64 and Darwin arm64 to the two targets; fail clearly for anything else, including Intel macOS.
-- Download the asset and `SHA256SUMS` over HTTPS, verify the matching checksum (`sha256sum` on Linux, `shasum -a 256` on macOS), extract `agentgloss`, install it executable, and warn when the install directory is not on `PATH`.
+- Download the asset and `SHA256SUMS` over HTTPS, verify the matching checksum (`sha256sum` on Linux, `shasum -a 256` on macOS), extract `agloss`, install it executable with an `agentgloss` alias, and warn when the install directory is not on `PATH`.
 - `AGENTGLOSS_RELEASE_BASE` overrides the release base URL (default `https://github.com/AgingChan/agentgloss/releases`) so tests can serve a fake release from a `file://` directory.
 - One-liner: `curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh | sh`
 
@@ -111,10 +112,10 @@ Add an Install section before Build:
 
 ### Tests
 
-- `tests/install.sh`: build a fake release directory containing a dummy `agentgloss` tarball and `SHA256SUMS`; run the installer with `AGENTGLOSS_RELEASE_BASE=file://...`; assert the binary lands in the target directory, that a pinned version path works, and that a bad checksum fails without installing.
+- `tests/install.sh`: build fake release directories containing a dummy `agloss` tarball and a legacy `agentgloss` tarball plus `SHA256SUMS`; run the installer with `AGENTGLOSS_RELEASE_BASE=file://...`; assert both command names land in the target directory, that a pinned version path works, and that a bad checksum fails without installing.
 - CI runs the installer test on ubuntu.
 - `cargo publish --dry-run` / `cargo package --list` verifies the crate contents.
-- Manual: after the first tag, install on Linux x86_64 and run `agentgloss --version`; repeat on Apple Silicon macOS.
+- Manual: after the first tag, install on Linux x86_64 and run `agloss --version`; repeat on Apple Silicon macOS.
 
 ## Release procedure (maintainer)
 

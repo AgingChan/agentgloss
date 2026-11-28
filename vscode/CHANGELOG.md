@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added the standalone Marketplace trusted-publishing workflow using GitHub
+  OIDC (`vsce publish --oidc`); no PAT is stored.
+- Upgraded `@vscode/vsce` to 4.1.1.
+
 ## 1.0.0 — 2026-11-28
 
 - First stable release of the extension.

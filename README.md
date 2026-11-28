@@ -174,6 +174,15 @@ entry in `SHA256SUMS`. Set `agentgloss.path` (machine scope) when the binary is
 not on `PATH`. The extension requires a trusted workspace and spawns the binary
 without a shell.
 
+Marketplace publishing is handled by the standalone
+`.github/workflows/publish-vscode.yml` workflow. It uses Visual Studio
+Marketplace Trusted Publishing over GitHub OIDC (`vsce publish --oidc`) rather
+than a PAT. Configure the publisher's Trusted Publishing policy with
+repository `AgingChan/agentgloss`, workflow `publish-vscode.yml`, and publisher
+`InnopiaPteLtd`; leave the optional environment blank unless you add the same
+environment to the workflow. The existing `v1.0.0` tag predates the workflow,
+so publish it by running the workflow manually from `main`.
+
 Commands and entry points:
 
 - **agentgloss: Open Review** — rendered review panel beside the Markdown file.

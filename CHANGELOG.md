@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Standalone VS Code Marketplace publishing workflow using Trusted Publishing over GitHub OIDC (`vsce publish --oidc`), with no PAT.
+- Upgraded `@vscode/vsce` to 4.1.1.
+
 ## 1.0.0 — 2026-11-28
 
 First stable release of the terminal reviewer, editor bridge, and VS Code extension.

@@ -40,6 +40,17 @@ grep -q 'npm run package' "$release"
 grep -q 'sha256sum .*vsix' "$release"
 grep -q 'vscode/package.json' "$release"
 
+marketplace="$root/.github/workflows/publish-vscode.yml"
+test -f "$marketplace" || { echo "missing $marketplace" >&2; exit 1; }
+grep -q 'id-token: write' "$marketplace"
+grep -q -- '--oidc' "$marketplace"
+grep -q 'InnopiaPteLtd' "$marketplace"
+grep -q 'publish-vscode.yml' "$marketplace"
+if grep -Eqi 'VSCE_PAT|--pat|AZURE_CREDENTIAL' "$marketplace"; then
+    echo "trusted-publishing workflow must not use PAT or Azure credentials" >&2
+    exit 1
+fi
+
 if python3 -c 'import yaml' 2>/dev/null; then
     python3 -c 'import sys, yaml; [yaml.safe_load(open(p)) for p in sys.argv[1:]]' "$ci" "$release"
 fi

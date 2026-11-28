@@ -118,3 +118,9 @@
 - GitHub release assets verified: `agentgloss-1.0.0.vsix`, both platform tarballs, and `SHA256SUMS`: https://github.com/AgingChan/agentgloss/releases/tag/v1.0.0.
 - Downloaded the published VSIX and verified its identity: `Id="agentgloss" Version="1.0.0" Publisher="InnopiaPteLtd"`.
 - crates.io publish succeeded for 1.0.0. The VS Code extension ID is now `InnopiaPteLtd.agentgloss`; the old `agingchan.agentgloss` install is a separate, deprecated identity.
+
+## 2026-11-28 — Session 14: Marketplace trusted publishing
+
+- Added `.github/workflows/publish-vscode.yml`: tag/manual publishing with GitHub OIDC (`permissions.id-token: write`) and `vsce publish --oidc --skip-duplicate --no-dependencies`, with no PAT.
+- Upgraded `@vscode/vsce` to 4.1.1 for OIDC support and documented the Marketplace policy fields (publisher `InnopiaPteLtd`, repository `AgingChan/agentgloss`, workflow `publish-vscode.yml`).
+- The v1.0.0 tag predates the workflow; the first Marketplace publish should be a manual dispatch from `main` after the policy is active.

@@ -82,6 +82,22 @@ Install the VSIX with:
 code --install-extension agentgloss-1.0.0.vsix --force
 ```
 
+## Marketplace publishing
+
+`.github/workflows/publish-vscode.yml` publishes the extension on `v*` tags or
+on manual dispatch from `main` using Marketplace Trusted Publishing over GitHub
+OIDC. It does not use a `VSCE_PAT`.
+
+Configure the publisher (`InnopiaPteLtd`) Trusted Publishing policy with:
+
+- Repository: `AgingChan/agentgloss`
+- Workflow: `publish-vscode.yml`
+- Environment: leave blank unless you add the same `environment:` to the
+  workflow job
+
+The v1.0.0 tag predates this workflow; use **Run workflow** on `main` to publish
+1.0.0 after the policy is active.
+
 ## Known limitations
 
 - Rendered selections snap to annotated blocks/paragraphs; character-level

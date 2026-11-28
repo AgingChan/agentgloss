@@ -1,0 +1,63 @@
+name: Publish VS Code extension
+
+# Visual Studio Marketplace Trusted Publishing policy must match:
+#   Publisher:  InnopiaPteLtd
+#   Repository: AgingChan/agentgloss
+#   Workflow:   publish-vscode.yml
+#
+# No long-lived Marketplace token is used. GitHub OIDC issues a short-lived
+# credential after the policy is configured in the portal.
+#
+# If the Marketplace policy specifies an optional environment, add
+# `environment: <name>` to the job and use the exact same name in the portal.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: vscode-marketplace-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: vscode
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+
+      - name: Verify publisher, version, and branch
+        run: |
+          publisher=$(node -p "require('./package.json').publisher")
+          version=$(node -p "require('./package.json').version")
+          test "$publisher" = "InnopiaPteLtd"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            test "v$version" = "$GITHUB_REF_NAME"
+            git fetch origin main --no-tags
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          else
+            test "$GITHUB_REF" = "refs/heads/main"
+          fi
+
+      - name: Publish with Trusted Publishing
+        run: npx vsce publish --oidc --skip-duplicate --no-dependencies

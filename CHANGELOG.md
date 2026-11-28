@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 — 2026-11-28
+
+### Changed
+
+- Renamed the VS Code extension display name from "agentgloss Review" to "Agent Gloss". The command palette category and settings section use the same name; the extension ID remains `InnopiaPteLtd.agentgloss`.
+
 ## 1.0.1 — 2026-11-28
 
 ### Added

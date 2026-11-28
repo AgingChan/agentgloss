@@ -1,8 +1,8 @@
 {
   "name": "agentgloss",
-  "displayName": "agentgloss Review",
+  "displayName": "Agent Gloss",
   "description": "Review Markdown specs and agent plans with comments, suggested edits, and crisp Mermaid diagrams.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "InnopiaPteLtd",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -37,7 +37,7 @@
       {
         "command": "agentgloss.openReview",
         "title": "Open Review",
-        "category": "agentgloss",
+        "category": "Agent Gloss",
         "icon": {
           "light": "media/review-icon-light.svg",
           "dark": "media/review-icon-dark.svg"
@@ -46,17 +46,17 @@
       {
         "command": "agentgloss.refresh",
         "title": "Refresh Review",
-        "category": "agentgloss"
+        "category": "Agent Gloss"
       },
       {
         "command": "agentgloss.commentSelection",
         "title": "Comment on Selection",
-        "category": "agentgloss"
+        "category": "Agent Gloss"
       },
       {
         "command": "agentgloss.suggestSelection",
         "title": "Suggest Edit for Selection",
-        "category": "agentgloss"
+        "category": "Agent Gloss"
       }
     ],
     "menus": {
@@ -100,7 +100,7 @@
       ]
     },
     "configuration": {
-      "title": "agentgloss",
+      "title": "Agent Gloss",
       "properties": {
         "agentgloss.path": {
           "type": "string",

@@ -13,7 +13,7 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents,
 
 ## Status
 
-MVP implemented and tested (v1.0.1):
+MVP implemented and tested (v1.0.2):
 
 - 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, 1 performance test (191 Rust tests), plus 19 VS Code extension tests (210 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
@@ -49,7 +49,7 @@ The installer downloads the latest release, verifies its SHA-256 checksum, and i
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
-  | sh -s -- --version v1.0.1 --dir "$HOME/bin"
+  | sh -s -- --version v1.0.2 --dir "$HOME/bin"
 ```
 
 Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
@@ -166,10 +166,10 @@ npm ci
 npm run check
 npm test
 npm run package
-code --install-extension agentgloss-1.0.1.vsix --force
+code --install-extension agentgloss-1.0.2.vsix --force
 ```
 
-The v1.0.1 GitHub release also ships `agentgloss-1.0.1.vsix` with its checksum
+The v1.0.2 GitHub release also ships `agentgloss-1.0.2.vsix` with its checksum
 entry in `SHA256SUMS`. Set `agentgloss.path` (machine scope) when the binary is
 not on `PATH`. The extension requires a trusted workspace and spawns the binary
 without a shell.
@@ -190,7 +190,7 @@ tags.
 
 Commands and entry points:
 
-- **agentgloss: Open Review** — rendered review panel beside the Markdown file.
+- **Agent Gloss: Open Review** — rendered review panel beside the Markdown file.
   Also available as the AgentGloss annotation button in the editor title bar,
   in the Explorer file context menu, and in the editor-tab context menu.
 - **agentgloss: Comment on Selection** / **Suggest Edit for Selection** — exact
@@ -206,7 +206,7 @@ and is also attached to each GitHub release as a VSIX.
 
 1. The agent writes a spec and runs `agentgloss request <file>`.
 2. You run `agentgloss review <file>` (separate pane, the agent opens a tmux
-   popup, or you use **agentgloss: Open Review** in VS Code).
+   popup, or you use **Agent Gloss: Open Review** in VS Code).
 3. Select text or a block, press `c` for a comment or `s` for a suggested edit, then `F10` (or `Ctrl+Enter`) to save.
 4. `F10` (or `Ctrl+Enter`) again opens signoff. A clean review is approved; otherwise the review is sent to the agent.
 5. The agent runs `agentgloss export <file>` or `agentgloss wait <file>`, addresses the numbered items, and runs `agentgloss resolve <file> <ids>`.

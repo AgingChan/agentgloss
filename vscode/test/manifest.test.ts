@@ -7,6 +7,11 @@ const openReview = "agentgloss.openReview";
 describe("extension manifest", () => {
   it("uses the InnopiaPteLtd publisher and branded editor-title button", () => {
     expect(pkg.publisher).toBe("InnopiaPteLtd");
+    expect(pkg.displayName).toBe("Agent Gloss");
+    expect(pkg.contributes.configuration.title).toBe("Agent Gloss");
+    for (const entry of pkg.contributes.commands) {
+      expect(entry.category).toBe("Agent Gloss");
+    }
     const command = pkg.contributes.commands.find(
       (entry) => entry.command === openReview,
     );

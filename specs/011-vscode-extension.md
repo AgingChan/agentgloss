@@ -26,7 +26,7 @@ remain interchangeable front ends.
 `vscode/` is a self-contained TypeScript extension:
 
 - publisher `InnopiaPteLtd` (extension ID `InnopiaPteLtd.agentgloss`), name
-  `agentgloss`, display name "agentgloss Review", version `1.0.1`,
+  `agentgloss`, display name "Agent Gloss", version `1.0.2`,
   `engines.vscode: ^1.90`;
 - bundled with esbuild; unit tests with Vitest + jsdom; packaged with
   `@vscode/vsce` into a `.vsix`;

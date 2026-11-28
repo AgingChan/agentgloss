@@ -99,3 +99,10 @@
 - Created the AgentGloss mark (a folded page whose corner becomes a speech-bubble tail, with an amber gloss line), light/dark wordmark lockups, and a palette/brand guide under `branding/`.
 - Added the 128 px extension icon and 16 px light/dark editor-title annotation icons; replaced the Markdown preview codicon. The manifest test now verifies the icon paths and menu contributions.
 - Ships as v0.3.0.
+
+## 2026-11-28 — Session 11: v0.3.0 brand release
+
+- Merged and tagged v0.3.0 (`1aa489a`); release workflow run 46091008117 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46091008117.
+- GitHub release assets verified: `agentgloss-0.3.0.vsix`, both platform tarballs, and `SHA256SUMS`: https://github.com/AgingChan/agentgloss/releases/tag/v0.3.0.
+- crates.io publish succeeded for 0.3.0. The VSIX manifest carries version 0.3.0, `media/icon.png`, the dark gallery banner, and the branded light/dark editor-title icons.
+- The README logo now resolves from `branding/` on `main`; branding assets remain excluded from the crate package.

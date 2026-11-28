@@ -170,15 +170,15 @@ fn find_markers(text: &str, marker: &str) -> Vec<usize> {
 fn claude_recipe() -> String {
     String::from(
         "---\n\
-description: Review a Markdown spec with agentgloss\n\
+description: Review a Markdown spec with AgentGloss\n\
 ---\n\
 \n\
 When the user asks to review a spec or plan:\n\
 \n\
-1. Run `agentgloss request <file>`.\n\
-2. Ask the user to run `agentgloss review <file>` (or `agentgloss review <file> --tmux` inside tmux).\n\
-3. When they finish, run `agentgloss export <file>` and address every open item.\n\
-4. Run `agentgloss resolve <file> <ids>` for fixed items.\n\
+1. Run `agloss request <file>`.\n\
+2. Ask the user to run `agloss review <file>` (or `agloss review <file> --tmux` inside tmux).\n\
+3. When they finish, run `agloss export <file>` and address every open item.\n\
+4. Run `agloss resolve <file> <ids>` for fixed items.\n\
 \n\
 Do not edit the spec while the user is reviewing it.\n\
 ",
@@ -187,13 +187,13 @@ Do not edit the spec while the user is reviewing it.\n\
 
 fn generic_recipe() -> String {
     String::from(
-        "# agentgloss agent recipe\n\n\
+        "# AgentGloss agent recipe\n\n\
 When the user asks to review a Markdown spec or plan:\n\n\
-1. Run `agentgloss request <file>`.\n\
-2. Ask the user to run `agentgloss review <file>` in a terminal (or `agentgloss review <file> --tmux` inside tmux).\n\
-3. Wait or poll with `agentgloss wait <file>`; alternatively run `agentgloss export <file>` after the user signs off.\n\
+1. Run `agloss request <file>`.\n\
+2. Ask the user to run `agloss review <file>` in a terminal (or `agloss review <file> --tmux` inside tmux).\n\
+3. Wait or poll with `agloss wait <file>`; alternatively run `agloss export <file>` after the user signs off.\n\
 4. Address every open item. Suggestions show an original and a replacement.\n\
-5. Mark fixed items with `agentgloss resolve <file> <ids>`.\n\
+5. Mark fixed items with `agloss resolve <file> <ids>`.\n\
 6. Do not edit the spec while the user is reviewing it.\n",
     )
 }
@@ -201,12 +201,12 @@ When the user asks to review a Markdown spec or plan:\n\n\
 fn codex_block() -> String {
     format!(
         "{START}\n\
-## agentgloss spec review\n\n\
+## AgentGloss spec review\n\n\
 When the user asks to review a spec or plan:\n\n\
-1. Run `agentgloss request <file>`.\n\
-2. Ask the user to run `agentgloss review <file>` (or `agentgloss review <file> --tmux` inside tmux).\n\
-3. Run `agentgloss export <file>` after signoff and address every open item.\n\
-4. Run `agentgloss resolve <file> <ids>` for fixed items.\n\
+1. Run `agloss request <file>`.\n\
+2. Ask the user to run `agloss review <file>` (or `agloss review <file> --tmux` inside tmux).\n\
+3. Run `agloss export <file>` after signoff and address every open item.\n\
+4. Run `agloss resolve <file> <ids>` for fixed items.\n\
 5. Do not edit the spec while the user is reviewing it.\n\
 {END}\n"
     )
@@ -215,12 +215,12 @@ When the user asks to review a spec or plan:\n\n\
 fn gemini_block() -> String {
     format!(
         "{START}\n\
-## agentgloss spec review\n\n\
+## AgentGloss spec review\n\n\
 When the user asks to review a spec or plan:\n\n\
-1. Run `agentgloss request <file>`.\n\
-2. Ask the user to run `agentgloss review <file>` (or `agentgloss review <file> --tmux` inside tmux).\n\
-3. Run `agentgloss export <file>` after signoff and address every open item.\n\
-4. Run `agentgloss resolve <file> <ids>` for fixed items.\n\
+1. Run `agloss request <file>`.\n\
+2. Ask the user to run `agloss review <file>` (or `agloss review <file> --tmux` inside tmux).\n\
+3. Run `agloss export <file>` after signoff and address every open item.\n\
+4. Run `agloss resolve <file> <ids>` for fixed items.\n\
 5. Do not edit the spec while the user is reviewing it.\n\
 {END}\n"
     )
@@ -229,41 +229,41 @@ When the user asks to review a spec or plan:\n\n\
 pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
     if std::env::var_os("TMUX").is_none() {
         anyhow::bail!(
-            "not inside tmux; run `agentgloss review {}` in your terminal instead",
+            "not inside tmux; run `agloss review {}` in your terminal instead",
             args.file.display()
         );
     }
     let command = tui_command(args)?;
     if args.detach {
         let status = Command::new("tmux")
-            .args(["new-window", "-d", "-n", "agentgloss", &command])
+            .args(["new-window", "-d", "-n", "agloss", &command])
             .status()
             .map_err(|error| {
                 anyhow::anyhow!(
-                    "cannot run tmux: {error}; run `agentgloss review {}` in your terminal instead",
+                    "cannot run tmux: {error}; run `agloss review {}` in your terminal instead",
                     args.file.display()
                 )
             })?;
         if !status.success() {
             anyhow::bail!(
-                "tmux new-window failed; run `agentgloss review {}` in your terminal instead",
+                "tmux new-window failed; run `agloss review {}` in your terminal instead",
                 args.file.display()
             );
         }
-        println!("Opened agentgloss in a detached tmux window.");
+        println!("Opened AgentGloss in a detached tmux window.");
         if let Some(sidecar) = &args.sidecar {
             println!(
-                "Agent: agentgloss wait {} --sidecar {}",
+                "Agent: agloss wait {} --sidecar {}",
                 display_path(&args.file),
                 display_path(sidecar)
             );
         } else {
-            println!("Agent: agentgloss wait {}", display_path(&args.file));
+            println!("Agent: agloss wait {}", display_path(&args.file));
         }
         return Ok(EXIT_OK);
     }
 
-    let title = format!("agentgloss: {}", args.file.display());
+    let title = format!("agloss: {}", args.file.display());
     let sidecar = review_sidecar(args);
     let result_file = tui_result_path();
     let popup_command = format!(
@@ -290,7 +290,7 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
         Err(error) => {
             let _ = std::fs::remove_file(&result_file);
             anyhow::bail!(
-                "cannot run tmux display-popup: {error}; run `agentgloss review {}` in your terminal instead",
+                "cannot run tmux display-popup: {error}; run `agloss review {}` in your terminal instead",
                 args.file.display()
             );
         }
@@ -305,7 +305,7 @@ pub fn run_tmux(args: &ReviewArgs) -> anyhow::Result<i32> {
         EXIT_TUI_APPROVED | EXIT_TUI_FEEDBACK | EXIT_TUI_ABORTED
     ) {
         anyhow::bail!(
-            "tmux display-popup failed (status {code}); run `agentgloss review {}` in your terminal instead",
+            "tmux display-popup failed (status {code}); run `agloss review {}` in your terminal instead",
             args.file.display()
         );
     }
@@ -409,9 +409,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let written = install(InstallAgent::Claude, dir.path()).unwrap();
         let text = std::fs::read_to_string(&written[0]).unwrap();
-        assert!(text.contains("agentgloss request"));
-        assert!(text.contains("agentgloss export"));
-        assert!(text.contains("agentgloss review"));
+        assert!(text.contains("agloss request"));
+        assert!(text.contains("agloss export"));
+        assert!(text.contains("agloss review"));
     }
 
     #[test]
@@ -433,9 +433,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let written = install(InstallAgent::Generic, dir.path()).unwrap();
         let text = std::fs::read_to_string(&written[0]).unwrap();
-        assert!(text.contains("agentgloss request"));
-        assert!(text.contains("agentgloss wait"));
-        assert!(text.contains("agentgloss resolve"));
+        assert!(text.contains("agloss request"));
+        assert!(text.contains("agloss wait"));
+        assert!(text.contains("agloss resolve"));
     }
 
     #[test]

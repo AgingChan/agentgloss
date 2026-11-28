@@ -156,3 +156,12 @@
 - The published VSIX reports `Id="agentgloss" Version="1.0.2" Publisher="InnopiaPteLtd"` and `DisplayName=Agent Gloss`; its icon hash still matches the Marketplace-served 128 × 128 PNG.
 - Marketplace now lists the extension as **Agent Gloss** 1.0.2: https://marketplace.visualstudio.com/items?itemName=InnopiaPteLtd.agentgloss.
 - crates.io reports 1.0.2; the installer downloaded and ran `agentgloss 1.0.2` on macOS arm64.
+
+## 2026-11-28 — Session 19: agloss CLI command
+
+- Added `agloss` as the primary CLI binary; `agentgloss` remains installed as a compatibility alias and still runs the same code.
+- Updated agent recipes, handoff hints, export resolve commands, tmux titles, and error prefixes to use `agloss`. Config paths, sidecars, marker comments, and the crate/package name are unchanged.
+- The installer now installs `agloss` and creates an `agentgloss` alias; it also handles older archives that contain only `agentgloss`.
+- The release tarball packages `agloss`; `cargo install` builds both names. The VS Code `agentgloss.path` setting defaults to `agloss` while keeping its key.
+- Added a CLI alias regression test (192 Rust tests + 19 extension tests = 211 total).
+- Documented Windows as VS Code Remote - WSL (x86_64) with the Linux binary; native Windows executables remain out of scope. Ships as v1.0.3.

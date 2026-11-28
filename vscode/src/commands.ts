@@ -111,7 +111,7 @@ function resolveMarkdownUri(resource: unknown): vscode.Uri | undefined {
 function binaryPath(): string {
   return vscode.workspace
     .getConfiguration("agentgloss")
-    .get<string>("path", "agentgloss");
+    .get<string>("path", "agloss");
 }
 
 function selectionLines(editor: vscode.TextEditor): Selection {

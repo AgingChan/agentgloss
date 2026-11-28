@@ -44,7 +44,7 @@
 ```
 
 - `last_signoff` is `feedback`, `approved`, or `null`.
-- `requested_at` is optional; set by `agentgloss request`.
+- `requested_at` is optional; set by `agloss request`.
 - `approval` is valid only while its hash equals the current document hash and there are no open or stale items.
 - IDs are `c<N>` and never reused. `next_id` is monotonic.
 - Suggestions add `suggestion: { "original": "...", "replacement": "..." }`.

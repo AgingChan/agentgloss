@@ -1,7 +1,7 @@
 # agentgloss — Terminal Spec Reviewer Design
 
 - **Date:** 2026-11-20 (updated 2026-11-28)
-- **Status:** MVP complete and v1.0.2 released 2026-11-28; 191 Rust tests plus 19 VS Code extension tests (210 total); the editor bridge and VS Code extension were added in this release line
+- **Status:** MVP complete and v1.0.3 released 2026-11-28; 192 Rust tests plus 19 VS Code extension tests (211 total); the editor bridge and VS Code extension were added in this release line
 - **Name:** agentgloss (formerly mdreview, which collides with an existing Python/Textual project)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 
@@ -39,11 +39,11 @@ Reviewing long agent-generated specs and plans in a terminal is awkward. Scrollb
 
 ## 4. Workflow
 
-1. The agent writes or updates a spec (for example `docs/specs/checkout.md`) and reaches a review checkpoint. It runs `agentgloss request <file>`, which records the request and tells the agent that review is pending.
+1. The agent writes or updates a spec (for example `docs/specs/checkout.md`) and reaches a review checkpoint. It runs `agloss request <file>`, which records the request and tells the agent that review is pending.
 2. The human reviews through one of three paths:
-   - **Standalone:** `agentgloss review <file>` in any terminal pane.
-   - **Handshake:** the agent asks the human to run the command, then collects feedback with `agentgloss export <file>` or `agentgloss wait <file>`.
-   - **tmux:** the agent runs `agentgloss review <file> --tmux`; a popup opens, and signoff returns the prompt to the agent. `--detach` returns immediately for agents that cannot block.
+   - **Standalone:** `agloss review <file>` in any terminal pane.
+   - **Handshake:** the agent asks the human to run the command, then collects feedback with `agloss export <file>` or `agloss wait <file>`.
+   - **tmux:** the agent runs `agloss review <file> --tmux`; a popup opens, and signoff returns the prompt to the agent. `--detach` returns immediately for agents that cannot block.
 3. On signoff the sidecar is saved, a numbered prompt is emitted, and the exit code tells the agent whether there is feedback or a clean approval.
 4. The agent revises, optionally marks IDs resolved, and requests round two. Open comments re-anchor to the new text; resolved comments archive; comments whose anchors cannot be found become stale.
 5. The human can quit mid-review. Drafts autosave, and the next launch resumes.
@@ -147,7 +147,7 @@ The Linux release build environment is `scripts/env.sh`: a conda `rustbuild` GCC
 
 ## 12. Validation
 
-- 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, and 1 performance test pass (191 Rust tests); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
+- 128 library tests, 17 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, and 1 performance test pass (192 Rust tests); `cargo fmt`, `clippy -D warnings`, and `cargo test --all-features` pass.
 - The VS Code extension contributes 19 Vitest/jsdom tests (209 automated tests total) and packages as a VSIX.
 - Additional coverage includes tmux feedback/abort exit codes, custom sidecars, export locking, stale approval status, reattachment, narrow-terminal overlays, mouse hit-testing, asynchronous content-addressed media caching, grapheme-safe wrapping, multi-paragraph lists and footnotes, control-character sanitization, and a 2,000-line performance test.
 

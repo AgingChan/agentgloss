@@ -167,7 +167,7 @@ export function runBridge(
     const timer = setTimeout(() => {
       child.kill();
       finish(() =>
-        reject(new BridgeError("timeout", "agentgloss bridge timed out")),
+        reject(new BridgeError("timeout", "agloss bridge timed out")),
       );
     }, timeoutMs);
 
@@ -177,7 +177,7 @@ export function runBridge(
           reject(
             new BridgeError(
               "not_found",
-              `agentgloss binary not found: ${binary}. Set agentgloss.path to the installed binary.`,
+              `agloss binary not found: ${binary}. Set agentgloss.path to the installed binary.`,
             ),
           );
         } else {
@@ -216,7 +216,7 @@ export function runBridge(
         reject(
           new BridgeError(
             "bridge_failure",
-            `agentgloss exited ${code ?? "unknown"}: ${(
+            `agloss exited ${code ?? "unknown"}: ${(
               stderr ||
               stdout ||
               "no output"

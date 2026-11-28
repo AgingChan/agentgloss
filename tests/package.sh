@@ -9,7 +9,7 @@ for path in .cargo/ state/ harness/ docs/ specs/ .github/ .claude/ .superpowers/
         exit 1
     fi
 done
-for path in README.md LICENSE CHANGELOG.md Cargo.toml src/lib.rs src/main.rs; do
+for path in README.md LICENSE CHANGELOG.md Cargo.toml src/lib.rs src/main.rs src/bin/agloss.rs; do
     printf '%s\n' "$list" | grep -qx "$path" || { echo "missing from package: $path" >&2; exit 1; }
 done
 echo "package contents ok"

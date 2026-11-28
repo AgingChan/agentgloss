@@ -2,7 +2,7 @@
   "name": "agentgloss",
   "displayName": "Agent Gloss",
   "description": "Review Markdown specs and agent plans with comments, suggested edits, and crisp Mermaid diagrams.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "InnopiaPteLtd",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -104,9 +104,9 @@
       "properties": {
         "agentgloss.path": {
           "type": "string",
-          "default": "agentgloss",
+          "default": "agloss",
           "scope": "machine",
-          "description": "Path to the agentgloss binary (or a command on PATH)."
+          "description": "Path to the agloss binary (or a command on PATH)."
         }
       }
     }

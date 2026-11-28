@@ -1,7 +1,7 @@
 # Installation and distribution design
 
 - **Date:** 2026-11-22
-- **Status:** Implemented and released (v1.0.2)
+- **Status:** Implemented and released (v1.0.3)
 - **Repo:** https://github.com/AgingChan/agentgloss (public, default branch `main`)
 
 ## Intent
@@ -21,7 +21,7 @@ Let people install agentgloss without a Rust toolchain, conda environment, or mu
 
 ## Non-goals
 
-- Windows, Linux aarch64, macOS Intel, Homebrew, Nix, AUR, Docker images. Only Apple Silicon macOS is built and validated.
+- Native Windows binaries, Linux aarch64, macOS Intel, Homebrew, Nix, AUR, Docker images. WSL2 uses the Linux x86_64 build and is the supported Windows path. Only Apple Silicon macOS is built and validated.
 - Auto-update.
 - Apple notarization or Developer ID signing; macOS binaries are ad-hoc signed.
 - Managing crates.io tokens beyond a repository-scoped `CARGO_REGISTRY_TOKEN` secret.
@@ -34,8 +34,8 @@ Let people install agentgloss without a Rust toolchain, conda environment, or mu
 - Linux release assets must stay static (`file` reports `static-pie linked`).
 - The crate name `agentgloss` is currently available on crates.io, but crates.io names are permanent. Publishing under this name forecloses a later rename to a new crate name.
 - MIT license; released as v0.1.0, v0.1.1, v0.2.0, v0.2.1, v0.3.0, v1.0.0,
-  v1.0.1, and v1.0.2. The VS Code extension is packaged as a VSIX artifact and
-  published to the Marketplace via Trusted Publishing.
+  v1.0.1, v1.0.2, and v1.0.3. The VS Code extension is packaged as a VSIX
+  artifact and published to the Marketplace via Trusted Publishing.
 - Release tags are `v<semver>` and must match `Cargo.toml`; the workflow enforces this.
 
 ## Rename to AgentGloss
@@ -43,9 +43,9 @@ Let people install agentgloss without a Rust toolchain, conda environment, or mu
 The project moves from `mdreview` to `agentgloss` before the first release. This is part of the same change:
 
 - **GitHub:** rename `AgingChan/mdreview` to `AgingChan/agentgloss` and update `origin`; GitHub redirects the old URLs.
-- **Rust:** package and binary name `agentgloss`; update CLI help/version, error prefixes, the TUI header, `Cargo.lock`, and tests that assert the name.
+- **Rust:** package name `agentgloss`; command name `agloss` with an `agentgloss` alias; update CLI help/version, error prefixes, the TUI header, `Cargo.lock`, and tests that assert the names.
 - **Docs:** README, live specs, the main design doc, CHANGELOG (note the rename), `init.sh`, and harness scripts. Historical harness task IDs (`MDREVIEW-N`) and historical `state/` QA notes stay as identifiers.
-- **Agent integration:** `agentgloss install ...`; generated `agentgloss-review.md` and `agentgloss-agent.md`; marker comments `<!-- agentgloss:start -->`; replace the local `.claude/commands/mdreview-review.md` with `agentgloss-review.md`.
+- **Agent integration:** `agloss install ...`; generated `agentgloss-review.md` and `agentgloss-agent.md`; marker comments `<!-- agentgloss:start -->`; replace the local `.claude/commands/mdreview-review.md` with `agentgloss-review.md`.
 - **Unchanged:** the sidecar path `<file>.review.json` is name-independent.
 - **New names everywhere:** install URLs, asset names, env vars (`AGENTGLOSS_INSTALL_DIR`, `AGENTGLOSS_RELEASE_BASE`), and the crates.io package are `agentgloss`.
 
@@ -66,7 +66,8 @@ Stable, unversioned asset names so `releases/latest/download/<asset>` works with
 - `agentgloss-aarch64-apple-darwin.tar.gz`
 - `SHA256SUMS`
 
-Each tarball contains `agentgloss`, `LICENSE`, and `README.md` at its root.
+Each tarball contains `agloss`, `LICENSE`, and `README.md` at its root. The
+installer also creates an `agentgloss` alias.
 
 ### Release workflow (`.github/workflows/release.yml`)
 
@@ -88,7 +89,7 @@ POSIX `sh`, `set -eu`, no dependencies beyond `curl`, `tar`, and a SHA-256 tool.
 
 - Flags: `--version <vX.Y.Z>` (default: latest), `--dir <path>` (default: `${AGENTGLOSS_INSTALL_DIR:-$HOME/.local/bin}`), `--help`.
 - Detect `uname -s`/`uname -m`; map Linux x86_64 and Darwin arm64 to the two targets; fail clearly for anything else, including Intel macOS.
-- Download the asset and `SHA256SUMS` over HTTPS, verify the matching checksum (`sha256sum` on Linux, `shasum -a 256` on macOS), extract `agentgloss`, install it executable, and warn when the install directory is not on `PATH`.
+- Download the asset and `SHA256SUMS` over HTTPS, verify the matching checksum (`sha256sum` on Linux, `shasum -a 256` on macOS), extract `agloss`, install it executable with an `agentgloss` alias, and warn when the install directory is not on `PATH`.
 - `AGENTGLOSS_RELEASE_BASE` overrides the release base URL (default `https://github.com/AgingChan/agentgloss/releases`) so tests can serve a fake release from a `file://` directory.
 - One-liner: `curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh | sh`
 
@@ -111,15 +112,15 @@ Add an Install section before Build:
 
 ### Tests
 
-- `tests/install.sh`: build a fake release directory containing a dummy `agentgloss` tarball and `SHA256SUMS`; run the installer with `AGENTGLOSS_RELEASE_BASE=file://...`; assert the binary lands in the target directory, that a pinned version path works, and that a bad checksum fails without installing.
+- `tests/install.sh`: build fake release directories containing a dummy `agloss` tarball and a legacy `agentgloss` tarball plus `SHA256SUMS`; run the installer with `AGENTGLOSS_RELEASE_BASE=file://...`; assert both command names land in the target directory, that a pinned version path works, and that a bad checksum fails without installing.
 - CI runs the installer test on ubuntu.
 - `cargo publish --dry-run` / `cargo package --list` verifies the crate contents.
-- Manual: after the first tag, install on Linux x86_64 and run `agentgloss --version`; repeat on Apple Silicon macOS.
+- Manual: after the first tag, install on Linux x86_64 and run `agloss --version`; repeat on Apple Silicon macOS.
 
 ## Release procedure (maintainer)
 
 1. Ensure `main` is green and `Cargo.toml` version is correct; update `CHANGELOG.md`.
-2. `git tag v1.0.2 && git push origin v1.0.2` from `main`; the workflow refuses a tag whose commit is not an ancestor of `main`.
+2. `git tag v1.0.3 && git push origin v1.0.3` from `main`; the workflow refuses a tag whose commit is not an ancestor of `main`.
 3. The release workflow builds the two tarballs, writes `SHA256SUMS`, and publishes the GitHub Release.
 4. The workflow publishes to crates.io using `CARGO_REGISTRY_TOKEN`; ensure the repository secret exists before tagging.
 5. Verify: `curl ... | sh` on Linux and Apple Silicon; `cargo install agentgloss` in a clean environment.

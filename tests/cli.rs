@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::{Command, Output};
 
 fn bin() -> &'static str {
-    env!("CARGO_BIN_EXE_agentgloss")
+    env!("CARGO_BIN_EXE_agloss")
 }
 
 fn run(dir: &Path, args: &[&str]) -> Output {
@@ -13,7 +13,7 @@ fn run(dir: &Path, args: &[&str]) -> Output {
         .current_dir(dir)
         .env_remove("TMUX")
         .output()
-        .expect("run agentgloss")
+        .expect("run agloss")
 }
 
 fn write_spec(dir: &Path) -> std::path::PathBuf {
@@ -45,10 +45,21 @@ fn version_and_help() {
     let dir = tempfile::tempdir().unwrap();
     let output = run(dir.path(), &["--version"]);
     assert!(output.status.success());
-    assert!(String::from_utf8_lossy(&output.stdout).contains("agentgloss"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("agloss"));
     let help = run(dir.path(), &["--help"]);
     assert!(help.status.success());
     assert!(String::from_utf8_lossy(&help.stdout).contains("request"));
+}
+
+#[test]
+fn agentgloss_alias_still_works() {
+    let output = Command::new(env!("CARGO_BIN_EXE_agentgloss"))
+        .arg("--version")
+        .env_remove("TMUX")
+        .output()
+        .expect("run agentgloss alias");
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("agloss"));
 }
 
 #[test]
@@ -58,7 +69,7 @@ fn request_status_export_resolve_flow() {
 
     let request = run(dir.path(), &["request", "spec.md"]);
     assert!(request.status.success(), "{request:?}");
-    assert!(String::from_utf8_lossy(&request.stdout).contains("agentgloss review spec.md"));
+    assert!(String::from_utf8_lossy(&request.stdout).contains("agloss review spec.md"));
     assert!(sidecar_path(&path).exists());
 
     let status = run(dir.path(), &["status", "spec.md", "--json"]);
@@ -71,7 +82,7 @@ fn request_status_export_resolve_flow() {
     let export = run(dir.path(), &["export", "spec.md"]);
     assert_eq!(export.status.code(), Some(10), "{export:?}");
     let prompt = String::from_utf8_lossy(&export.stdout);
-    assert!(prompt.contains("agentgloss review"));
+    assert!(prompt.contains("agloss resolve"));
     assert!(prompt.contains(&id));
     assert!(prompt.contains("Please clarify this."));
 
@@ -152,8 +163,8 @@ fn install_writes_recipes() {
     let recipe = dir.path().join(".claude/commands/agentgloss-review.md");
     assert!(recipe.exists());
     let text = std::fs::read_to_string(recipe).unwrap();
-    assert!(text.contains("agentgloss request"));
-    assert!(text.contains("agentgloss export"));
+    assert!(text.contains("agloss request"));
+    assert!(text.contains("agloss export"));
 
     let output = run(dir.path(), &["install", "codex", "--dir", "."]);
     assert!(output.status.success());
@@ -259,7 +270,7 @@ fn custom_sidecar_commands_work() {
     let prompt = String::from_utf8_lossy(&export.stdout);
     assert!(
         prompt.contains(&format!(
-            "agentgloss resolve spec.md {id} --sidecar custom.review.json"
+            "agloss resolve spec.md {id} --sidecar custom.review.json"
         )),
         "{prompt}"
     );
@@ -468,7 +479,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .output()
         .unwrap();
     assert_eq!(popup_failure.status.code(), Some(2), "{popup_failure:?}");
-    assert!(String::from_utf8_lossy(&popup_failure.stderr).contains("agentgloss review"));
+    assert!(String::from_utf8_lossy(&popup_failure.stderr).contains("agloss review"));
 
     let abort_doc = dir.path().join("abort.md");
     std::fs::write(&abort_doc, "# Abort\n").unwrap();
@@ -515,7 +526,7 @@ fn tmux_adapter_builds_popup_and_detach_commands() {
         .output()
         .unwrap();
     assert!(detach.status.success(), "{detach:?}");
-    assert!(String::from_utf8_lossy(&detach.stdout).contains("agentgloss wait"));
+    assert!(String::from_utf8_lossy(&detach.stdout).contains("agloss wait"));
     let recorded = std::fs::read_to_string(&log).unwrap();
     assert!(recorded.contains("new-window"));
 

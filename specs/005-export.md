@@ -2,7 +2,7 @@
 
 ## Prompt format
 
-`agentgloss export <file>` prints a numbered, paste-ready review. Open and stale items are included by default; resolved items only with `--all`.
+`agloss export <file>` prints a numbered, paste-ready review. Open and stale items are included by default; resolved items only with `--all`.
 
 ```markdown
 # agentgloss review
@@ -16,7 +16,7 @@
 
 Address the items below. Answer every comment and accept or reject every suggestion.
 After editing, mark fixed items resolved:
-  agentgloss resolve docs/specs/checkout.md c1 c2
+  agloss resolve docs/specs/checkout.md c1 c2
 
 ## 1. [c1] comment — open — lines 42-44
 Heading: Architecture > Data flow

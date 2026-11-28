@@ -97,7 +97,7 @@ impl Config {
             ];
             for key in table.keys() {
                 if !KNOWN.contains(&key.as_str()) {
-                    eprintln!("agentgloss: warning: unknown config key '{key}'");
+                    eprintln!("agloss: warning: unknown config key '{key}'");
                 }
             }
         }

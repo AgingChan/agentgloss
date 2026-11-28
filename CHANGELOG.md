@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3 — 2026-11-28
+
+### Changed
+
+- The CLI command is now `agloss`; `agentgloss` remains installed as a compatibility alias. Agent recipes, export hints, tmux messages, and the VS Code default binary use `agloss`. The crate/package name, config directory, sidecar, and agent markers are unchanged.
+- Documented Windows support through VS Code Remote - WSL with the Linux x86_64 binary. Native Windows executables are not built yet.
+
 ## 1.0.2 — 2026-11-28
 
 ### Changed

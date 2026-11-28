@@ -9,6 +9,9 @@ describe("extension manifest", () => {
     expect(pkg.publisher).toBe("InnopiaPteLtd");
     expect(pkg.displayName).toBe("Agent Gloss");
     expect(pkg.contributes.configuration.title).toBe("Agent Gloss");
+    expect(
+      pkg.contributes.configuration.properties["agentgloss.path"].default,
+    ).toBe("agloss");
     for (const entry of pkg.contributes.commands) {
       expect(entry.category).toBe("Agent Gloss");
     }

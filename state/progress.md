@@ -165,3 +165,12 @@
 - The release tarball packages `agloss`; `cargo install` builds both names. The VS Code `agentgloss.path` setting defaults to `agloss` while keeping its key.
 - Added a CLI alias regression test (192 Rust tests + 19 extension tests = 211 total).
 - Documented Windows as VS Code Remote - WSL (x86_64) with the Linux binary; native Windows executables remain out of scope. Ships as v1.0.3.
+
+## 2026-11-28 — Session 20: v1.0.3 release
+
+- Merged and tagged v1.0.3 (`a621847`); release workflow run 46114223685 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46114223685.
+- Marketplace trusted-publishing workflow run 46114223682 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46114223682.
+- GitHub release assets verified: `agentgloss-1.0.3.vsix`, both platform tarballs, and `SHA256SUMS`: https://github.com/AgingChan/agentgloss/releases/tag/v1.0.3. The macOS tarball contains `agloss`; the installer creates the `agentgloss` alias and both report `agloss 1.0.3`.
+- Published VSIX: `Id="agentgloss" Version="1.0.3" Publisher="InnopiaPteLtd"`, `DisplayName=Agent Gloss`, default `agentgloss.path=agloss`.
+- Marketplace lists Agent Gloss 1.0.3; crates.io reports 1.0.3.
+- Windows is documented as VS Code Remote - WSL with the Linux x86_64 binary. Native Windows executables and extension hosts remain unsupported.

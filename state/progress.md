@@ -141,3 +141,9 @@
 - Downloaded the published VSIX and verified `Id="agentgloss" Version="1.0.1" Publisher="InnopiaPteLtd"`. Its 128 × 128 icon hash matches the local full-bleed asset and the Marketplace-served icon exactly.
 - Marketplace now lists `InnopiaPteLtd.agentgloss` 1.0.1: https://marketplace.visualstudio.com/items?itemName=InnopiaPteLtd.agentgloss.
 - crates.io reports 1.0.1 as the newest version; the installer downloaded and ran `agentgloss 1.0.1` on macOS arm64.
+
+## 2026-11-28 — Session 17: Agent Gloss display name
+
+- Renamed the VS Code extension display name from "agentgloss Review" to "Agent Gloss".
+- Aligned the command palette category and settings section with the new name; command IDs and the extension ID (`InnopiaPteLtd.agentgloss`) are unchanged.
+- The manifest test now asserts the display name, category, and settings title. Ships as v1.0.2.

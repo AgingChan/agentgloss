@@ -1,7 +1,7 @@
 # agentgloss acceptance matrix
 
 Evidence was refreshed on 2026-11-28 on macOS arm64 (Rust 1.100, host target
-`aarch64-apple-darwin`). The v1.0.1 release gate covers the static musl build,
+`aarch64-apple-darwin`). The v1.0.2 release gate covers the static musl build,
 the editor bridge, and the VS Code extension without changing the sidecar
 schema.
 
@@ -24,7 +24,7 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
 | Agent handshake | `tests/cli.rs::request_status_export_resolve_flow`, `wait_returns_feedback_and_times_out`, `wait_returns_approval`, `resolve_validates_the_document`; recipe tests in `agent::tests` including duplicate/orphan marker handling |
 | tmux adapter | `tests/cli.rs::tmux_adapter_builds_popup_and_detach_commands`; sentinel propagation and result-file fallback |
 | Editor bridge | `tests/bridge.rs`: state purity, sync idempotence, comment/suggestion/edit/resolve/unresolve/delete/reattach/signoff, expect-hash and line-range validation, lock behaviour, corrupt/v2 sidecars, CRLF and missing-newline selections, custom sidecars |
-| VS Code extension | 19 Vitest/jsdom tests for annotation ranges, selection reduction, bridge envelopes, link/image security, and the manifest menu/icon contributions (including the 128 × 128 icon); `npm run check`, `npm run build`, and `npm run package` pass; VSIX installs into an isolated VS Code 1.145 profile |
+| VS Code extension | 19 Vitest/jsdom tests for annotation ranges, selection reduction, bridge envelopes, link/image security, and the manifest display-name/menu/icon contributions (including the 128 × 128 icon); `npm run check`, `npm run build`, and `npm run package` pass; VSIX installs into an isolated VS Code 1.145 profile |
 | Marketplace icon | `render_brand_icon` renders the full-bleed square source at exactly 128 × 128 and fails unless all four corners are opaque ink; the VSIX contains the same PNG; the trusted-publishing workflow publishes tagged releases |
 | VS Code entry points | Editor-title preview button, Explorer file context menu, editor-tab context menu, and editor context menu are declared in `vscode/package.json`; `test/manifest.test.ts` guards the contributions |
 
@@ -34,11 +34,11 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
    pass on macOS arm64 with `--target aarch64-apple-darwin`.
 2. Bridge end-to-end flow is covered by `tests/bridge.rs` and was exercised
    against a temporary spec; sidecars remain schema version 1.
-3. VSIX v1.0.1 built (1 MB) and its manifest verified (version, branded
-   light/dark editor icons, full-bleed 128 px extension icon/gallery banner,
-   and four menu contributions). An earlier VSIX was installed into an isolated
-   VS Code profile; the v1.0.1 release asset is published on GitHub under
-   publisher `InnopiaPteLtd`.
+3. VSIX v1.0.2 built (1 MB) and its manifest verified (version, display name
+   "Agent Gloss", branded light/dark editor icons, full-bleed 128 px extension
+   icon/gallery banner, and four menu contributions). An earlier VSIX was
+   installed into an isolated VS Code profile; the v1.0.2 release asset is
+   published on GitHub under publisher `InnopiaPteLtd`.
 4. PTY close check passed on 2026-11-28: a `script` PTY ran the TUI, SIGHUP
    produced exit 1, and the sidecar was saved. The panic-hook/mouse-cleanup
    paths are unit-checked in code review, not driven in a debugger.
@@ -46,7 +46,7 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
    extension-host errors. Remaining manual/visual check before a release: open
    the webview in a real VS Code window and exercise the rendered selection →
    signoff flow, including Mermaid fidelity.
-6. The static musl release gate is v1.0.1; this pass was verified on the macOS
+6. The static musl release gate is v1.0.2; this pass was verified on the macOS
    host target before tagging.
 
 ## Verdict (2026-11-28)

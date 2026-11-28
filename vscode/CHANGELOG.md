@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2 — 2026-11-28
+
+- Renamed the extension display name to "Agent Gloss". The command palette
+  category and settings section follow; the extension ID is unchanged.
+
 ## 1.0.1 — 2026-11-28
 
 - Added the standalone Marketplace trusted-publishing workflow using GitHub

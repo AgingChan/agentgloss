@@ -1,7 +1,7 @@
 # agentgloss — Terminal Spec Reviewer Design
 
 - **Date:** 2026-11-20 (updated 2026-11-28)
-- **Status:** MVP complete and v1.0.1 released 2026-11-28; 191 Rust tests plus 19 VS Code extension tests (210 total); the editor bridge and VS Code extension were added in this release line
+- **Status:** MVP complete and v1.0.2 released 2026-11-28; 191 Rust tests plus 19 VS Code extension tests (210 total); the editor bridge and VS Code extension were added in this release line
 - **Name:** agentgloss (formerly mdreview, which collides with an existing Python/Textual project)
 - **Ambition:** personal tool first, open-source later only if it proves useful
 

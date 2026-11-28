@@ -132,3 +132,12 @@
 - Added `examples/render_brand_icon.rs` as the reproducible renderer; it fails if any corner is padded or transparent.
 - The extension manifest test now pins the icon to a 128 × 128 PNG; branding docs and both changelogs are updated. Root docs checks cover the new square source.
 - Ships as v1.0.1; the Marketplace listing and GitHub release are refreshed from the same tagged source.
+
+## 2026-11-28 — Session 16: v1.0.1 release
+
+- Merged and tagged v1.0.1 (`a042b8a`); release workflow run 46100967777 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46100967777.
+- Marketplace trusted-publishing workflow run 46100967688 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46100967688.
+- GitHub release assets verified: `agentgloss-1.0.1.vsix`, both platform tarballs, and `SHA256SUMS`: https://github.com/AgingChan/agentgloss/releases/tag/v1.0.1.
+- Downloaded the published VSIX and verified `Id="agentgloss" Version="1.0.1" Publisher="InnopiaPteLtd"`. Its 128 × 128 icon hash matches the local full-bleed asset and the Marketplace-served icon exactly.
+- Marketplace now lists `InnopiaPteLtd.agentgloss` 1.0.1: https://marketplace.visualstudio.com/items?itemName=InnopiaPteLtd.agentgloss.
+- crates.io reports 1.0.1 as the newest version; the installer downloaded and ran `agentgloss 1.0.1` on macOS arm64.

@@ -147,3 +147,12 @@
 - Renamed the VS Code extension display name from "agentgloss Review" to "Agent Gloss".
 - Aligned the command palette category and settings section with the new name; command IDs and the extension ID (`InnopiaPteLtd.agentgloss`) are unchanged.
 - The manifest test now asserts the display name, category, and settings title. Ships as v1.0.2.
+
+## 2026-11-28 — Session 18: v1.0.2 release
+
+- Merged and tagged v1.0.2 (`98b02a9`); release workflow run 46110034797 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46110034797.
+- Marketplace trusted-publishing workflow run 46110034736 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46110034736.
+- GitHub release assets verified: `agentgloss-1.0.2.vsix`, both platform tarballs, and `SHA256SUMS`: https://github.com/AgingChan/agentgloss/releases/tag/v1.0.2.
+- The published VSIX reports `Id="agentgloss" Version="1.0.2" Publisher="InnopiaPteLtd"` and `DisplayName=Agent Gloss`; its icon hash still matches the Marketplace-served 128 × 128 PNG.
+- Marketplace now lists the extension as **Agent Gloss** 1.0.2: https://marketplace.visualstudio.com/items?itemName=InnopiaPteLtd.agentgloss.
+- crates.io reports 1.0.2; the installer downloaded and ran `agentgloss 1.0.2` on macOS arm64.

@@ -111,3 +111,10 @@
 
 - Changed the VS Code publisher ID from `agingchan` to `InnopiaPteLtd`; the extension ID is now `InnopiaPteLtd.agentgloss`.
 - Added a manifest assertion and refreshed the extension/spec/changelog docs. Ships as v1.0.0, the first stable release.
+
+## 2026-11-28 — Session 13: v1.0.0 stable release
+
+- Merged and tagged v1.0.0 (`1840c5b`); release workflow run 46092260108 succeeded: https://github.com/AgingChan/agentgloss/actions/runs/46092260108.
+- GitHub release assets verified: `agentgloss-1.0.0.vsix`, both platform tarballs, and `SHA256SUMS`: https://github.com/AgingChan/agentgloss/releases/tag/v1.0.0.
+- Downloaded the published VSIX and verified its identity: `Id="agentgloss" Version="1.0.0" Publisher="InnopiaPteLtd"`.
+- crates.io publish succeeded for 1.0.0. The VS Code extension ID is now `InnopiaPteLtd.agentgloss`; the old `agingchan.agentgloss` install is a separate, deprecated identity.

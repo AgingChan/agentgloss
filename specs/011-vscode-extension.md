@@ -25,8 +25,9 @@ The TUI and extension remain interchangeable front ends.
 
 `vscode/` is a self-contained TypeScript extension:
 
-- publisher `agingchan`, name `agentgloss`, display name "agentgloss Review",
-  version `0.3.0`, `engines.vscode: ^1.90`;
+- publisher `InnopiaPteLtd` (extension ID `InnopiaPteLtd.agentgloss`), name
+  `agentgloss`, display name "agentgloss Review", version `1.0.0`,
+  `engines.vscode: ^1.90`;
 - bundled with esbuild; unit tests with Vitest + jsdom; packaged with
   `@vscode/vsce` into a `.vsix`;
 - MIT license, README, CHANGELOG.

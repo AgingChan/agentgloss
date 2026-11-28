@@ -2,8 +2,8 @@
   "name": "agentgloss",
   "displayName": "agentgloss Review",
   "description": "Review Markdown specs and agent plans with comments, suggested edits, and crisp Mermaid diagrams.",
-  "version": "0.3.0",
-  "publisher": "agingchan",
+  "version": "1.0.0",
+  "publisher": "InnopiaPteLtd",
   "license": "MIT",
   "icon": "media/icon.png",
   "galleryBanner": {

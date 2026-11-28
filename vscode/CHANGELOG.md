@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0 — 2026-11-28
+
+- First stable release of the extension.
+- Changed the publisher ID to `InnopiaPteLtd`; the extension ID is now
+  `InnopiaPteLtd.agentgloss`.
+
 ## 0.3.0 — 2026-11-28
 
 - Added the AgentGloss product mark and extension icon.

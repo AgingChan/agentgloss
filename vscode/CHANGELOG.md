@@ -1,9 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.0.3 — 2026-11-28
 
 - Default the `agentgloss.path` setting to `agloss`, the new CLI command. The
   setting key is unchanged; `agentgloss` remains a compatibility alias.
+- Upgrading from 1.0.2 requires the 1.0.3 CLI (which installs `agloss`) or
+  setting `agentgloss.path` to the existing `agentgloss` executable.
+- Documented Windows use through VS Code Remote - WSL with the Linux binary.
+  Native Windows extension hosts remain unsupported until a native CLI exists.
 
 ## 1.0.2 — 2026-11-28
 

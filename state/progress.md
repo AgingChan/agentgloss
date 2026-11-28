@@ -163,4 +163,5 @@
 - Updated agent recipes, handoff hints, export resolve commands, tmux titles, and error prefixes to use `agloss`. Config paths, sidecars, marker comments, and the crate/package name are unchanged.
 - The installer now installs `agloss` and creates an `agentgloss` alias; it also handles older archives that contain only `agentgloss`.
 - The release tarball packages `agloss`; `cargo install` builds both names. The VS Code `agentgloss.path` setting defaults to `agloss` while keeping its key.
-- Added a CLI alias regression test (192 Rust tests + 19 extension tests = 211 total). Not released; the changes are committed on `feat/agloss-cli`.
+- Added a CLI alias regression test (192 Rust tests + 19 extension tests = 211 total).
+- Documented Windows as VS Code Remote - WSL (x86_64) with the Linux binary; native Windows executables remain out of scope. Ships as v1.0.3.

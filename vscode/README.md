@@ -17,6 +17,9 @@ or suggested edit is stored by the Rust bridge so `agloss request`,
   also works. Build it from this repository (`cargo build --release`) or
   install a release that includes it.
 - A trusted workspace.
+- **Windows:** use VS Code Remote - WSL with the Linux binary installed inside
+  WSL. Native Windows extension hosts need a native `agloss.exe`, which is not
+  released yet; a WSL/Linux binary cannot be spawned from native Windows VS Code.
 
 ## Setup
 
@@ -31,6 +34,10 @@ Put `agloss` on `PATH`, or set the machine-scoped `agentgloss.path` setting
 
 The extension never runs the binary in an untrusted workspace and spawns it
 with `execFile` (no shell).
+
+On Windows, connect VS Code to an x86_64 WSL2 distribution (Remote - WSL) and
+install the Linux binary there. The extension runs in the WSL remote and uses
+the same sidecar workflow as in the terminal.
 
 ## Use
 

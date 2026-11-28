@@ -17,16 +17,18 @@ approval itself.
 ## Non-goals
 
 Character-level selection, per-table-cell precision, auto-opening on
-`request`, webview drafts, multi-file reviews, remote/WSL extension hosts,
-remote image fetching, and replacing the terminal TUI. The TUI and extension
-remain interchangeable front ends.
+`request`, webview drafts, multi-file reviews, remote/WSL extension hosts
+except VS Code Remote - WSL, native Windows extension hosts, remote image
+fetching, and replacing the terminal TUI. The TUI and extension remain
+interchangeable front ends. Windows use is documented as Remote - WSL with the
+Linux x86_64 binary; a native Windows CLI is not released yet.
 
 ## Package
 
 `vscode/` is a self-contained TypeScript extension:
 
 - publisher `InnopiaPteLtd` (extension ID `InnopiaPteLtd.agentgloss`), name
-  `agentgloss`, display name "Agent Gloss", version `1.0.2`,
+  `agentgloss`, display name "Agent Gloss", version `1.0.3`,
   `engines.vscode: ^1.90`;
 - bundled with esbuild; unit tests with Vitest + jsdom; packaged with
   `@vscode/vsce` into a `.vsix`;

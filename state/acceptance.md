@@ -1,7 +1,7 @@
 # agentgloss acceptance matrix
 
 Evidence was refreshed on 2026-11-28 on macOS arm64 (Rust 1.100, host target
-`aarch64-apple-darwin`). The v1.0.2 release gate covers the static musl build,
+`aarch64-apple-darwin`). The v1.0.3 release gate covers the static musl build,
 the editor bridge, and the VS Code extension without changing the sidecar
 schema.
 
@@ -34,11 +34,12 @@ integration, and 1 performance test (192 Rust; two ignored diagnostics), plus
    pass on macOS arm64 with `--target aarch64-apple-darwin`.
 2. Bridge end-to-end flow is covered by `tests/bridge.rs` and was exercised
    against a temporary spec; sidecars remain schema version 1.
-3. VSIX v1.0.2 built (1 MB) and its manifest verified (version, display name
-   "Agent Gloss", branded light/dark editor icons, full-bleed 128 px extension
-   icon/gallery banner, and four menu contributions). An earlier VSIX was
-   installed into an isolated VS Code profile; the v1.0.2 release asset is
-   published on GitHub under publisher `InnopiaPteLtd`.
+3. VSIX v1.0.3 built (1 MB) and its manifest verified (version, display name
+   "Agent Gloss", `agentgloss.path` default `agloss`, branded light/dark editor
+   icons, full-bleed 128 px extension icon/gallery banner, and four menu
+   contributions). An earlier VSIX was installed into an isolated VS Code
+   profile; the v1.0.3 release asset is published on GitHub under publisher
+   `InnopiaPteLtd`.
 4. PTY close check passed on 2026-11-28: a `script` PTY ran the TUI, SIGHUP
    produced exit 1, and the sidecar was saved. The panic-hook/mouse-cleanup
    paths are unit-checked in code review, not driven in a debugger.
@@ -46,8 +47,11 @@ integration, and 1 performance test (192 Rust; two ignored diagnostics), plus
    extension-host errors. Remaining manual/visual check before a release: open
    the webview in a real VS Code window and exercise the rendered selection →
    signoff flow, including Mermaid fidelity.
-6. The static musl release gate is v1.0.2; this pass was verified on the macOS
+6. The static musl release gate is v1.0.3; this pass was verified on the macOS
    host target before tagging.
+7. Windows: native executables are not built or validated. The documented
+   Windows path is VS Code Remote - WSL with the Linux x86_64 build; no native
+   Windows runtime gate is claimed.
 
 ## Verdict (2026-11-28)
 

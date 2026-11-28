@@ -2,7 +2,7 @@
   "name": "agentgloss",
   "displayName": "Agent Gloss",
   "description": "Review Markdown specs and agent plans with comments, suggested edits, and crisp Mermaid diagrams.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "InnopiaPteLtd",
   "license": "MIT",
   "icon": "media/icon.png",

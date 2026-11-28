@@ -13,7 +13,7 @@ AgentGloss renders Markdown (including local images and Mermaid diagrams), lets 
 
 ## Status
 
-MVP implemented and tested (v1.0.2):
+MVP implemented and tested (v1.0.3):
 
 - 128 library tests, 17 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, 1 performance test (192 Rust tests), plus 19 VS Code extension tests (211 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
@@ -39,7 +39,7 @@ MVP implemented and tested (v1.0.2):
 
 ## Install
 
-Prebuilt binaries are published for Linux x86_64 (static musl) and macOS Apple Silicon. macOS Intel, Windows, and Linux aarch64 are not built.
+Prebuilt binaries are published for Linux x86_64 (static musl) and macOS Apple Silicon. macOS Intel, native Windows, and Linux aarch64 are not built; Windows users should use WSL2 as described below.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh | sh
@@ -49,7 +49,7 @@ The installer downloads the latest release, verifies its SHA-256 checksum, and i
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
-  | sh -s -- --version v1.0.2 --dir "$HOME/bin"
+  | sh -s -- --version v1.0.3 --dir "$HOME/bin"
 ```
 
 Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agloss` on your `PATH`.
@@ -67,6 +67,15 @@ cargo install --git https://github.com/AgingChan/agentgloss
 ```
 
 macOS binaries are ad-hoc signed. If Gatekeeper quarantines the downloaded binary, run `xattr -d com.apple.quarantine ~/.local/bin/agloss`.
+
+### Windows via WSL2
+
+Native Windows executables are not published yet. The supported Windows path is VS Code Remote - WSL:
+
+1. In an x86_64 WSL2 distribution, run the Linux installer above.
+2. Connect VS Code to that WSL distribution with Remote - WSL and install **Agent Gloss** in the WSL remote.
+
+The extension then runs in WSL and invokes the WSL `agloss` binary. Native Windows VS Code cannot spawn a WSL/Linux executable, so it is not supported until a native Windows CLI release exists. VS Code Remote - WSL is the zero-native-port option and keeps the same sidecar and agent workflow.
 
 > Renaming from mdreview: the config directory is now `~/.config/agentgloss` (`~/Library/Application Support/agentgloss` on macOS); an existing `~/.config/mdreview` is not read. Old `<!-- mdreview:* -->` marker blocks are not recognized; delete the old block, then re-run `agloss install <agent>` to install the new recipes.
 

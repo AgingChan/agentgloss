@@ -1,7 +1,7 @@
 # Installation and distribution design
 
 - **Date:** 2026-11-22
-- **Status:** Implemented and released (v1.0.0)
+- **Status:** Implemented and released (v1.0.1)
 - **Repo:** https://github.com/AgingChan/agentgloss (public, default branch `main`)
 
 ## Intent
@@ -33,8 +33,9 @@ Let people install agentgloss without a Rust toolchain, conda environment, or mu
 - `.cargo/config.toml` defaults builds to `x86_64-unknown-linux-musl`; macOS jobs must pass `--target` explicitly.
 - Linux release assets must stay static (`file` reports `static-pie linked`).
 - The crate name `agentgloss` is currently available on crates.io, but crates.io names are permanent. Publishing under this name forecloses a later rename to a new crate name.
-- MIT license; released as v0.1.0, v0.1.1, v0.2.0, v0.2.1, v0.3.0, and v1.0.0. The VS Code extension
-  is packaged as a VSIX artifact but is not published to the Marketplace.
+- MIT license; released as v0.1.0, v0.1.1, v0.2.0, v0.2.1, v0.3.0, v1.0.0,
+  and v1.0.1. The VS Code extension is packaged as a VSIX artifact and
+  published to the Marketplace via Trusted Publishing.
 - Release tags are `v<semver>` and must match `Cargo.toml`; the workflow enforces this.
 
 ## Rename to AgentGloss
@@ -118,7 +119,7 @@ Add an Install section before Build:
 ## Release procedure (maintainer)
 
 1. Ensure `main` is green and `Cargo.toml` version is correct; update `CHANGELOG.md`.
-2. `git tag v1.0.0 && git push origin v1.0.0` from `main`; the workflow refuses a tag whose commit is not an ancestor of `main`.
+2. `git tag v1.0.1 && git push origin v1.0.1` from `main`; the workflow refuses a tag whose commit is not an ancestor of `main`.
 3. The release workflow builds the two tarballs, writes `SHA256SUMS`, and publishes the GitHub Release.
 4. The workflow publishes to crates.io using `CARGO_REGISTRY_TOKEN`; ensure the repository secret exists before tagging.
 5. Verify: `curl ... | sh` on Linux and Apple Silicon; `cargo install agentgloss` in a clean environment.

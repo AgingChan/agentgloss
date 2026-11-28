@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 — 2026-11-28
 
 - Added the standalone Marketplace trusted-publishing workflow using GitHub
   OIDC (`vsce publish --oidc`); no PAT is stored.
 - Upgraded `@vscode/vsce` to 4.1.1.
+- Fixed the Marketplace icon: it is now a full-bleed 128 px square with opaque
+  ink corners, rendered directly from the square brand mark without padding or
+  a transparent rounded canvas.
 
 ## 1.0.0 — 2026-11-28
 

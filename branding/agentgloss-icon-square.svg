@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="agentgloss-icon-square-title">
+  <title id="agentgloss-icon-square-title">AgentGloss</title>
+  <rect width="256" height="256" fill="#101827"/>
+  <path d="M84 48H172L200 76V156C200 171.53 187.53 184 172 184H124L88 216C93.5 199 96 191 96 184H84C68.47 184 56 171.53 56 156V76C56 60.47 68.47 48 84 48Z" fill="#F7F1E3"/>
+  <path d="M172 48L200 76H172Z" fill="#E2D5BD"/>
+  <rect x="88" y="94" width="88" height="14" rx="7" fill="#101827"/>
+  <rect x="88" y="122" width="62" height="14" rx="7" fill="#101827" fill-opacity="0.82"/>
+  <rect x="88" y="150" width="44" height="14" rx="7" fill="#E9A23B"/>
+</svg>

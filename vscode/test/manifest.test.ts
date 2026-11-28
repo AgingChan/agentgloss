@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import pkg from "../package.json";
 
@@ -16,6 +16,10 @@ describe("extension manifest", () => {
     });
     expect(pkg.icon).toBe("media/icon.png");
     expect(existsSync(pkg.icon)).toBe(true);
+    const icon = readFileSync(pkg.icon);
+    expect(icon.subarray(1, 4).toString("ascii")).toBe("PNG");
+    expect(icon.readUInt32BE(16)).toBe(128);
+    expect(icon.readUInt32BE(20)).toBe(128);
     expect(existsSync("media/review-icon-light.svg")).toBe(true);
     expect(existsSync("media/review-icon-dark.svg")).toBe(true);
     expect(pkg.contributes.menus["editor/title"]).toContainEqual(

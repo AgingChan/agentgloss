@@ -13,7 +13,7 @@ A terminal reviewer for long Markdown specs and plans produced by coding agents,
 
 ## Status
 
-MVP implemented and tested (v1.0.0):
+MVP implemented and tested (v1.0.1):
 
 - 128 library tests, 16 CLI integration tests, 35 TUI integration tests, 11 bridge integration tests, 1 performance test (191 Rust tests), plus 19 VS Code extension tests (210 total)
 - `cargo fmt`, `cargo clippy -D warnings`, and `cargo test --all-features` pass
@@ -49,7 +49,7 @@ The installer downloads the latest release, verifies its SHA-256 checksum, and i
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/AgingChan/agentgloss/main/install.sh \
-  | sh -s -- --version v1.0.0 --dir "$HOME/bin"
+  | sh -s -- --version v1.0.1 --dir "$HOME/bin"
 ```
 
 Manual downloads are on the [Releases](https://github.com/AgingChan/agentgloss/releases) page: pick the tarball for your platform, verify it against `SHA256SUMS`, and put `agentgloss` on your `PATH`.
@@ -166,13 +166,17 @@ npm ci
 npm run check
 npm test
 npm run package
-code --install-extension agentgloss-1.0.0.vsix --force
+code --install-extension agentgloss-1.0.1.vsix --force
 ```
 
-The v1.0.0 GitHub release also ships `agentgloss-1.0.0.vsix` with its checksum
+The v1.0.1 GitHub release also ships `agentgloss-1.0.1.vsix` with its checksum
 entry in `SHA256SUMS`. Set `agentgloss.path` (machine scope) when the binary is
 not on `PATH`. The extension requires a trusted workspace and spawns the binary
 without a shell.
+
+The extension is published to the Visual Studio Marketplace as
+[`InnopiaPteLtd.agentgloss`](https://marketplace.visualstudio.com/items?itemName=InnopiaPteLtd.agentgloss),
+so it can also be installed from the VS Code Extensions view.
 
 Marketplace publishing is handled by the standalone
 `.github/workflows/publish-vscode.yml` workflow. It uses Visual Studio
@@ -180,8 +184,9 @@ Marketplace Trusted Publishing over GitHub OIDC (`vsce publish --oidc`) rather
 than a PAT. Configure the publisher's Trusted Publishing policy with
 repository `AgingChan/agentgloss`, workflow `publish-vscode.yml`, and publisher
 `InnopiaPteLtd`; leave the optional environment blank unless you add the same
-environment to the workflow. The existing `v1.0.0` tag predates the workflow,
-so publish it by running the workflow manually from `main`.
+environment to the workflow. The workflow publishes every `v*` tag; it was
+first used for a manual `v1.0.0` dispatch and now runs automatically on release
+tags.
 
 Commands and entry points:
 
@@ -194,8 +199,8 @@ Commands and entry points:
 Rendered selections snap to annotated blocks and paragraphs; use the
 source-editor commands when you need a precise line inside a table or fence.
 The webview opens under the document directory/workspace for local images and
-renders remote images as links. It is packaged as a VSIX but not published to
-the Marketplace.
+renders remote images as links. The extension is published to the Marketplace
+and is also attached to each GitHub release as a VSIX.
 
 ## Review workflow
 

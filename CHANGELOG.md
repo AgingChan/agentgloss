@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 — 2026-11-28
 
 ### Added
 
 - Standalone VS Code Marketplace publishing workflow using Trusted Publishing over GitHub OIDC (`vsce publish --oidc`), with no PAT.
 - Upgraded `@vscode/vsce` to 4.1.1.
+
+### Fixed
+
+- The VS Code extension icon is now a full-bleed 128 px square rendered directly with resvg. It no longer has Quick Look padding, and its ink reaches all four corners, so the Marketplace does not show white space or corner notches.
 
 ## 1.0.0 — 2026-11-28
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 — 2026-11-28
+
+### Changed
+
+- Added the AgentGloss product mark, light/dark wordmark lockups, and a branded VS Code extension icon. The editor-title Open Review button now uses the AgentGloss annotation icon instead of the Markdown preview codicon.
+
 ## 0.2.1 — 2026-11-28
 
 ### Added

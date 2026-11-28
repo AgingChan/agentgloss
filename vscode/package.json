@@ -2,9 +2,14 @@
   "name": "agentgloss",
   "displayName": "agentgloss Review",
   "description": "Review Markdown specs and agent plans with comments, suggested edits, and crisp Mermaid diagrams.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "publisher": "agingchan",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#101827",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/AgingChan/agentgloss",
@@ -33,7 +38,10 @@
         "command": "agentgloss.openReview",
         "title": "Open Review",
         "category": "agentgloss",
-        "icon": "$(open-preview)"
+        "icon": {
+          "light": "media/review-icon-light.svg",
+          "dark": "media/review-icon-dark.svg"
+        }
       },
       {
         "command": "agentgloss.refresh",

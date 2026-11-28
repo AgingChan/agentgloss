@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0 — 2026-11-28
+
+First stable release of the terminal reviewer, editor bridge, and VS Code extension.
+
+### Changed
+
+- VS Code publisher ID is now `InnopiaPteLtd`; the extension ID becomes `InnopiaPteLtd.agentgloss`.
+
 ## 0.3.0 — 2026-11-28
 
 ### Changed

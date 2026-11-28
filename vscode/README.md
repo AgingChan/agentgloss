@@ -79,7 +79,7 @@ npm run package   # VSIX in this directory
 Install the VSIX with:
 
 ```sh
-code --install-extension agentgloss-0.3.0.vsix --force
+code --install-extension agentgloss-1.0.0.vsix --force
 ```
 
 ## Known limitations

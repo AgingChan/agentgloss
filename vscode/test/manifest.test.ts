@@ -5,7 +5,8 @@ import pkg from "../package.json";
 const openReview = "agentgloss.openReview";
 
 describe("extension manifest", () => {
-  it("adds a Markdown-editor title button with the AgentGloss icon", () => {
+  it("uses the InnopiaPteLtd publisher and branded editor-title button", () => {
+    expect(pkg.publisher).toBe("InnopiaPteLtd");
     const command = pkg.contributes.commands.find(
       (entry) => entry.command === openReview,
     );

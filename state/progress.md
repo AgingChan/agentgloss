@@ -106,3 +106,8 @@
 - GitHub release assets verified: `agentgloss-0.3.0.vsix`, both platform tarballs, and `SHA256SUMS`: https://github.com/AgingChan/agentgloss/releases/tag/v0.3.0.
 - crates.io publish succeeded for 0.3.0. The VSIX manifest carries version 0.3.0, `media/icon.png`, the dark gallery banner, and the branded light/dark editor-title icons.
 - The README logo now resolves from `branding/` on `main`; branding assets remain excluded from the crate package.
+
+## 2026-11-28 — Session 12: publisher ID change
+
+- Changed the VS Code publisher ID from `agingchan` to `InnopiaPteLtd`; the extension ID is now `InnopiaPteLtd.agentgloss`.
+- Added a manifest assertion and refreshed the extension/spec/changelog docs. Ships as v1.0.0, the first stable release.

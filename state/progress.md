@@ -124,3 +124,11 @@
 - Added `.github/workflows/publish-vscode.yml`: tag/manual publishing with GitHub OIDC (`permissions.id-token: write`) and `vsce publish --oidc --skip-duplicate --no-dependencies`, with no PAT.
 - Upgraded `@vscode/vsce` to 4.1.1 for OIDC support and documented the Marketplace policy fields (publisher `InnopiaPteLtd`, repository `AgingChan/agentgloss`, workflow `publish-vscode.yml`).
 - The v1.0.0 tag predates the workflow; the first Marketplace publish should be a manual dispatch from `main` after the policy is active.
+
+## 2026-11-28 — Session 15: Marketplace icon fix
+
+- Marketplace 1.0.0 is live, so the icon update needs a patch release.
+- Replaced the Quick Look/sips icon with a full-bleed square SVG rendered by resvg directly at 128 × 128. All four corners are opaque ink, and the mark keeps its intended margins.
+- Added `examples/render_brand_icon.rs` as the reproducible renderer; it fails if any corner is padded or transparent.
+- The extension manifest test now pins the icon to a 128 × 128 PNG; branding docs and both changelogs are updated. Root docs checks cover the new square source.
+- Ships as v1.0.1; the Marketplace listing and GitHub release are refreshed from the same tagged source.

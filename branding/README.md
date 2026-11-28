@@ -23,17 +23,23 @@ The mark is deliberately not an eye or sparkle. It should read as
 
 ## Files
 
-- `agentgloss-icon.svg` — square product/extension mark.
+- `agentgloss-icon.svg` — rounded product tile for surfaces that support
+  transparency.
+- `agentgloss-icon-square.svg` — full-bleed square mark for the Marketplace and
+  other hosts that crop extension icons to rounded corners.
 - `agentgloss-logo-light.svg` — horizontal lockup for light backgrounds.
 - `agentgloss-logo-dark.svg` — horizontal lockup for dark backgrounds.
-- `vscode/media/icon.png` — 128 px extension icon (generated from the square
-  mark).
+- `vscode/media/icon.png` — 128 px extension icon rendered from the full-bleed
+  square mark, with no padding or transparent corners.
 - `vscode/media/review-icon-light.svg` / `review-icon-dark.svg` — 16 px
   editor-title icons.
 
 ## Usage
 
 - Keep clear space around the tile equal to at least one quarter of its width.
+- Use the rounded tile in docs and app surfaces; use the full-bleed square for
+  Marketplace and OS icons, which often crop the corners themselves. A
+  transparent or padded canvas shows a white notch there.
 - Use the square mark down to 24 px; use the 16 px toolbar variants in UI
   chrome rather than shrinking the full tile.
 - Use the light or dark lockup for the surrounding background; do not recolor
@@ -42,7 +48,12 @@ The mark is deliberately not an eye or sparkle. It should read as
 
 ## Regenerate the PNG
 
+The extension icon is rendered directly by resvg at exactly 128 × 128, so the
+artwork keeps its intended margins and the ink reaches all four corners:
+
 ```sh
-qlmanage -t -s 512 -o /tmp branding/agentgloss-icon.svg
-sips -z 128 128 /tmp/agentgloss-icon.svg.png --out vscode/media/icon.png
+cargo run --quiet --example render_brand_icon --target aarch64-apple-darwin
 ```
+
+The example also fails if any corner is not opaque ink, catching padding or a
+transparent canvas before a release.

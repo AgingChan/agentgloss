@@ -79,8 +79,10 @@ npm run package   # VSIX in this directory
 Install the VSIX with:
 
 ```sh
-code --install-extension agentgloss-1.0.0.vsix --force
+code --install-extension agentgloss-1.0.1.vsix --force
 ```
+
+Or install `InnopiaPteLtd.agentgloss` from the Visual Studio Marketplace.
 
 ## Marketplace publishing
 
@@ -95,13 +97,13 @@ Configure the publisher (`InnopiaPteLtd`) Trusted Publishing policy with:
 - Environment: leave blank unless you add the same `environment:` to the
   workflow job
 
-The v1.0.0 tag predates this workflow; use **Run workflow** on `main` to publish
-1.0.0 after the policy is active.
+The workflow publishes every `v*` tag. It was first used for a manual `v1.0.0`
+dispatch and now runs automatically on release tags.
 
 ## Known limitations
 
 - Rendered selections snap to annotated blocks/paragraphs; character-level
   source selection is only available through the editor commands.
 - Custom sidecar paths are not configurable in the webview yet.
-- Remote extension hosts (WSL, SSH, containers) and Marketplace publishing are
-  out of scope for this version.
+- Remote extension hosts (WSL, SSH, containers) are out of scope for this
+  version.

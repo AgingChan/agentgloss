@@ -18,15 +18,15 @@ approval itself.
 
 Character-level selection, per-table-cell precision, auto-opening on
 `request`, webview drafts, multi-file reviews, remote/WSL extension hosts,
-remote image fetching, Marketplace publishing, and replacing the terminal TUI.
-The TUI and extension remain interchangeable front ends.
+remote image fetching, and replacing the terminal TUI. The TUI and extension
+remain interchangeable front ends.
 
 ## Package
 
 `vscode/` is a self-contained TypeScript extension:
 
 - publisher `InnopiaPteLtd` (extension ID `InnopiaPteLtd.agentgloss`), name
-  `agentgloss`, display name "agentgloss Review", version `1.0.0`,
+  `agentgloss`, display name "agentgloss Review", version `1.0.1`,
   `engines.vscode: ^1.90`;
 - bundled with esbuild; unit tests with Vitest + jsdom; packaged with
   `@vscode/vsce` into a `.vsix`;

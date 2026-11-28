@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="media/icon.png" width="96" height="96" alt="AgentGloss icon">
+</p>
+
 # agentgloss Review for VS Code
 
 Review long Markdown specs and agent-generated plans inside VS Code with the
@@ -30,9 +34,9 @@ with `execFile` (no shell).
 ## Use
 
 1. The agent runs `agentgloss request spec.md` (or open any Markdown file).
-2. Run **agentgloss: Open Review** from the Command Palette, the editor-title
-   preview button, the Explorer file context menu, or the editor-tab context
-   menu.
+2. Run **agentgloss: Open Review** from the Command Palette, the AgentGloss
+   annotation button in the editor title bar, the Explorer file context menu,
+   or the editor-tab context menu.
 3. Select rendered text or a block to comment or suggest an edit.
 4. Use the inline cards to edit, resolve, reopen, delete, or reattach stale
    items.
@@ -75,7 +79,7 @@ npm run package   # VSIX in this directory
 Install the VSIX with:
 
 ```sh
-code --install-extension agentgloss-0.2.1.vsix --force
+code --install-extension agentgloss-0.3.0.vsix --force
 ```
 
 ## Known limitations

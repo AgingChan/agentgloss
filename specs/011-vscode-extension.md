@@ -26,7 +26,7 @@ The TUI and extension remain interchangeable front ends.
 `vscode/` is a self-contained TypeScript extension:
 
 - publisher `agingchan`, name `agentgloss`, display name "agentgloss Review",
-  version `0.2.1`, `engines.vscode: ^1.90`;
+  version `0.3.0`, `engines.vscode: ^1.90`;
 - bundled with esbuild; unit tests with Vitest + jsdom; packaged with
   `@vscode/vsce` into a `.vsix`;
 - MIT license, README, CHANGELOG.
@@ -35,7 +35,8 @@ Commands:
 
 - `agentgloss.openReview` — open the review panel for the active Markdown file
   or the file/URI passed by an Explorer or editor-tab context menu. The command
-  is also contributed to the editor title bar with the `$(open-preview)` icon;
+  is also contributed to the editor title bar with the branded 16 px
+  `media/review-icon-{light,dark}.svg` annotation icons;
 - `agentgloss.refresh` — re-run `state`;
 - `agentgloss.commentSelection` — exact-selection comment from the source
   editor context menu;

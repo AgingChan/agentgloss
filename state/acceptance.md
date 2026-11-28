@@ -1,7 +1,7 @@
 # agentgloss acceptance matrix
 
 Evidence was refreshed on 2026-11-28 on macOS arm64 (Rust 1.100, host target
-`aarch64-apple-darwin`). The v0.2.1 release gate covers the static musl build,
+`aarch64-apple-darwin`). The v0.3.0 release gate covers the static musl build,
 the editor bridge, and the VS Code extension without changing the sidecar
 schema.
 
@@ -33,9 +33,10 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
    pass on macOS arm64 with `--target aarch64-apple-darwin`.
 2. Bridge end-to-end flow is covered by `tests/bridge.rs` and was exercised
    against a temporary spec; sidecars remain schema version 1.
-3. VSIX v0.2.1 built (1 MB) and its manifest verified (version, preview icon,
-   and four menu contributions). The earlier v0.2.0 VSIX was installed into an
-   isolated VS Code profile; the release asset is published on GitHub.
+3. VSIX v0.3.0 built (1 MB) and its manifest verified (version, branded
+   light/dark editor icons, extension icon/gallery banner, and four menu
+   contributions). An earlier v0.2.0 VSIX was installed into an isolated VS
+   Code profile; the v0.3.0 release asset is published on GitHub.
 4. PTY close check passed on 2026-11-28: a `script` PTY ran the TUI, SIGHUP
    produced exit 1, and the sidecar was saved. The panic-hook/mouse-cleanup
    paths are unit-checked in code review, not driven in a debugger.
@@ -43,7 +44,7 @@ integration, and 1 performance test (191 Rust; two ignored diagnostics), plus
    extension-host errors. Remaining manual/visual check before a release: open
    the webview in a real VS Code window and exercise the rendered selection →
    signoff flow, including Mermaid fidelity.
-6. The static musl release gate is v0.2.1; this pass was verified on the macOS
+6. The static musl release gate is v0.3.0; this pass was verified on the macOS
    host target before tagging.
 
 ## Verdict (2026-11-28)

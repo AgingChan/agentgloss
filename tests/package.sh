@@ -3,7 +3,7 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 cd "$root"
 list=$(cargo package --list --allow-dirty)
-for path in .cargo/ state/ harness/ docs/ specs/ .github/ .claude/ .superpowers/ scripts/ init.sh vscode/; do
+for path in .cargo/ state/ harness/ docs/ specs/ .github/ .claude/ .superpowers/ scripts/ init.sh vscode/ branding/; do
     if printf '%s\n' "$list" | grep -q "^$path"; then
         echo "unexpected in package: $path" >&2
         exit 1

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 — 2026-11-28
+
+- Added the AgentGloss product mark and extension icon.
+- The Open Review editor-title button now uses the branded 16 px annotation
+  icons (light and dark) instead of the Markdown preview codicon.
+
 ## 0.2.1 — 2026-11-28
 
 - Added the **Open Review** editor-title button (preview icon), the Explorer
